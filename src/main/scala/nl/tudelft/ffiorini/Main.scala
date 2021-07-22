@@ -1,6 +1,7 @@
 package nl.tudelft.ffiorini
 
 import com.github.animeshtrivedi.arrowexample.ParquetToArrow
+import com.intel.hibench.sparkbench.common.IOCommon
 import org.apache.arrow.vector.BaseVariableWidthVector
 import org.apache.log4j.BasicConfigurator
 import org.apache.spark.rdd.ArrowPartition
@@ -18,7 +19,8 @@ object Main {
       .setMaster("local")
 
     val t0 = System.nanoTime()
-    //val sc = new SparkContext(conf)
+
+//    val sc = new SparkContext(conf)
     val sc = new ArrowSparkContext(conf)
 
     val parquetHandler: ParquetToArrow = new ParquetToArrow()
@@ -28,14 +30,24 @@ object Main {
     val setupTime = (System.nanoTime() - t0) / 1e9d
 
     val t1 = System.nanoTime()
-    val binVector = parquetHandler.getBinaryVector.get()
+//    val binVector = parquetHandler.getBinaryVector.get()
+    val longVector = parquetHandler.getInteger64Vector.get()
+//    val binrdd2 = sc.parallelizeWithArrow[Array[Byte]](binVector, 10 )
+    val longRdd = sc.parallelizeWithArrow[Long](longVector, 10)
+//    println("RDD COUNT: " +binrdd2.count())
+//    val data = sc.textFile("/data/example.txt")
 
-    val binrdd2 = sc.parallelizeWithArrow[Array[Byte]](binVector, 5)
-    val result = binrdd2.map(x => new String(x, StandardCharsets.UTF_8)).map(x => (x,1))
+    val rddTime = (System.nanoTime() - t1) / 1e9d
 
-    val transformTime = (System.nanoTime() - t1) / 1e9d
+    val t2 = System.nanoTime()
+//    val result = binrdd2.map(x => new String(x, StandardCharsets.UTF_8)).map(x => (x,1))
+//    val counts = data.flatMap(line => line.split(" ")).map(word => (word, 1))
+    val result = longRdd.map(x => (x, "right"))
+    println("RDD COUNT: " +result.count())
+    val transformTime = (System.nanoTime() - t2) / 1e9d
 
     println("PREPARATION TIME: " +setupTime+ " s")
+    println("RDD CREATION TIME: " +rddTime+ " s")
     println("TRANSFORMATION TIME: " +transformTime+ " s")
   }
 }
