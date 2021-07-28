@@ -67,17 +67,18 @@ private[spark] class JavaDeserializationStream(in: InputStream, loader: ClassLoa
     override def resolveClass(desc: ObjectStreamClass): Class[_] =
       try {
         // scalastyle:off classforname
-        println("CLASSNAME: "+desc.getName)
+//        println("CLASSNAME: "+desc.getName)
         Class.forName(desc.getName, false, loader)
         // scalastyle:on classforname
       } catch {
         case e: ClassNotFoundException =>
+//          println("Got here in the exception")
           JavaDeserializationStream.primitiveMappings.getOrElse(desc.getName, throw e)
       }
   }
 
   def readObject[T: ClassTag](): T = {
-    println("READOBJECT CALL")
+//    println("READOBJECT CALL")
     objIn.readObject().asInstanceOf[T]
   }
   def close(): Unit = { objIn.close() }
@@ -102,6 +103,7 @@ private[spark] class JavaSerializerInstance(
   extends SerializerInstance {
 
   override def serialize[T: ClassTag](t: T): ByteBuffer = {
+//    println("Start serializing -default")
     val bos = new ByteBufferOutputStream()
     val out = serializeStream(bos)
     out.writeObject(t)
@@ -110,13 +112,15 @@ private[spark] class JavaSerializerInstance(
   }
 
   override def deserialize[T: ClassTag](bytes: ByteBuffer): T = {
-    println("Start deserializing")
+//    println("Start deserializing")
     val bis = new ByteBufferInputStream(bytes)
     val in = deserializeStream(bis)
     in.readObject()
   }
 
   override def deserialize[T: ClassTag](bytes: ByteBuffer, loader: ClassLoader): T = {
+//    println("Start deserializing")
+//    println("CLASS LOADER: "+loader.getClass.getSimpleName)
     val bis = new ByteBufferInputStream(bytes)
     val in = deserializeStream(bis, loader)
     in.readObject()
@@ -152,6 +156,7 @@ class JavaSerializer(conf: SparkConf) extends Serializer with Externalizable {
 
   override def newInstance(): SerializerInstance = {
     val classLoader = defaultClassLoader.getOrElse(Thread.currentThread.getContextClassLoader)
+//    println("class loader new instance: "+classLoader.getClass.getSimpleName)
     new JavaSerializerInstance(counterReset, extraDebugInfo, classLoader)
   }
 
