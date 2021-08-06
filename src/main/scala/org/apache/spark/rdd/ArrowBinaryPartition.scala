@@ -3,6 +3,7 @@ package org.apache.spark.rdd
 import org.apache.arrow.memory.RootAllocator
 import org.apache.arrow.vector.{BaseVariableWidthVector, BigIntVector, VarBinaryVector}
 import org.apache.spark.Partition
+import org.apache.spark.internal.Logging
 import org.apache.spark.util.Utils
 
 import java.io.{Externalizable, ObjectInput, ObjectOutput}
@@ -82,7 +83,7 @@ class ArrowBinaryPartition extends Partition with Externalizable {
 
 /*This class works the same as ParallelCollectionPartition, used in the ParallelCollectionRDD below
 * and it uses Arrow-backed value vectors instead of the usual Scala Seq[T] collection */
-class ArrowLongPartition extends Partition with Externalizable{
+class ArrowLongPartition extends Partition with Externalizable with Logging{
 
   /* 26.07 HACK: specific case using BigIntVector (Long data type) */
   var rddId: Long = 0L
@@ -103,12 +104,13 @@ class ArrowLongPartition extends Partition with Externalizable{
     var idx = 0
 
     new Iterator[Long] {
+      logInfo("Called Iterator on Arrow Partition: %s"
+      .format(data.getClass.toString))
       override def hasNext: Boolean = idx < data.getValueCount
 
       override def next(): Long = {
         val value = data.get(idx)
         idx += 1
-
         value
       }
     }
