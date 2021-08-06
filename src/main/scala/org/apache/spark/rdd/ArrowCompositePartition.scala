@@ -3,7 +3,7 @@ package org.apache.spark.rdd
 import org.apache.arrow.memory.RootAllocator
 import org.apache.arrow.vector.types.Types.MinorType
 import org.apache.arrow.vector.{BigIntVector, ValueVector, VarBinaryVector, ZeroVector}
-import org.apache.spark.Partition
+import org.apache.spark.{Partition, SparkException}
 import org.apache.spark.internal.Logging
 
 import java.io.{Externalizable, ObjectInput, ObjectOutput}
@@ -118,7 +118,7 @@ class ArrowCompositePartition extends Partition with Externalizable with Logging
         }
         data._1.setValueCount(len)
         data._2.setValueCount(len)
-      case _ => throw new Exception("Unsupported Arrow vector(s)")
+      case _ => throw new SparkException("Unsupported Arrow Vector(s)")
     }
   }
 }

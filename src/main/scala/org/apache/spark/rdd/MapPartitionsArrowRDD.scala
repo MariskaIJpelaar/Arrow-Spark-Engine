@@ -22,7 +22,7 @@ private[spark] class MapPartitionsArrowRDD[U: ClassTag, T: ClassTag]
   override def compute(split: Partition, context: TaskContext): Iterator[U] = {
     logInfo("Called COMPUTE method on MapPartitionsArrowRDD %s, %s %s %s"
       .format(id, split.index, {classTag[T].runtimeClass}, {classTag[U].runtimeClass}))
-    logInfo("Function call: %s".format(f.toString()))
+    logInfo("Function call: %s".format(f.getClass.toString))
     f(context, split.index, firstParent[T].iterator(split, context))
   }
 }

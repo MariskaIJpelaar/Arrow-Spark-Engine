@@ -1,7 +1,7 @@
 package org.apache.spark
 
 import org.apache.arrow.vector.ValueVector
-import org.apache.spark.rdd.ArrowRDD
+import org.apache.spark.rdd.{ArrowRDD, TestArrowRDD}
 
 import scala.reflect.ClassTag
 
@@ -16,5 +16,11 @@ class ArrowSparkContext(config: SparkConf) extends SparkContext(config) {
                                 numSlices: Int = defaultParallelism): ArrowRDD[T] = withScope {
     assertNotStopped()
     new ArrowRDD[T](this, vector, numSlices, Map[Int, Seq[String]]())
+  }
+
+  def makeCompositeArrowRDD[T: ClassTag](@transient vectors: Array[ValueVector],
+                                         numSlices: Int = defaultParallelism): TestArrowRDD[T] = withScope {
+    assertNotStopped()
+    new TestArrowRDD[T](this, vectors, numSlices)
   }
 }
