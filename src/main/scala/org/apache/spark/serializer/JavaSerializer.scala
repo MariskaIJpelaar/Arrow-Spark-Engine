@@ -67,7 +67,6 @@ private[spark] class JavaDeserializationStream(in: InputStream, loader: ClassLoa
     override def resolveClass(desc: ObjectStreamClass): Class[_] =
       try {
         // scalastyle:off classforname
-        println("CLASSNAME: "+desc.getName)
         Class.forName(desc.getName, false, loader)
         // scalastyle:on classforname
       } catch {
@@ -77,7 +76,6 @@ private[spark] class JavaDeserializationStream(in: InputStream, loader: ClassLoa
   }
 
   def readObject[T: ClassTag](): T = {
-    println("READOBJECT CALL")
     objIn.readObject().asInstanceOf[T]
   }
   def close(): Unit = { objIn.close() }
@@ -110,7 +108,6 @@ private[spark] class JavaSerializerInstance(
   }
 
   override def deserialize[T: ClassTag](bytes: ByteBuffer): T = {
-    println("Start deserializing")
     val bis = new ByteBufferInputStream(bytes)
     val in = deserializeStream(bis)
     in.readObject()
