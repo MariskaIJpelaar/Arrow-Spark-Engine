@@ -36,10 +36,10 @@ private [spark] class ArrowRDD[T: ClassTag](@transient sc: SparkContext,
                                                     (implicit tag: TypeTag[T])
                                                     extends RDD[T](sc, Nil) with Logging {
 
+
   /* As said earlier, more vectors haven't been implemented as input for this RDD */
   private val _len = data.length
   require(_len <= 2, "Required maximum two ValueVector as parameter")
-
 
   override def compute(split: Partition, context: TaskContext): Iterator[T] = {
     _len match {
@@ -225,11 +225,11 @@ private [spark] class ArrowRDD[T: ClassTag](@transient sc: SparkContext,
 
 private object ArrowRDD {
 
-   implicit def rddToPairRDDFunctions[K, V](rdd: ArrowRDD[(K, V)])
+  implicit def rddToPairRDDFunctions[K, V](rdd: ArrowRDD[(K, V)])
                                           (implicit kt: ClassTag[K], vt: ClassTag[V], ord: Ordering[K] = null): PairRDDFunctions[K, V] = {
     new PairRDDFunctions(rdd)
   }
-
+  
   def slice[T: ClassTag](vec: ValueVector,
                          numSlices: Int): Seq[ValueVector] = {
 
