@@ -90,8 +90,6 @@ case class ShufflePushBlockId(shuffleId: Int, mapIndex: Int, reduceId: Int) exte
 
 @DeveloperApi
 case class BroadcastBlockId(broadcastId: Long, field: String = "") extends BlockId with Logging {
-  logInfo("BLOCK FIELD: %s".format(field))
-  println("BLOCK FIELD: "+field)
   override def name: String = "broadcast_" + broadcastId + (if (field == "") "" else "_" + field)
 }
 

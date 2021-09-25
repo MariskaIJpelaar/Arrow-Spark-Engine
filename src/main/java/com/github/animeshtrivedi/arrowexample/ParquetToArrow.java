@@ -32,7 +32,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.util.*;
 
-import nl.tudelft.ffiorini.utils.*;
+import org.apache.arrow.parquet.utils.*;
 import com.github.animeshtrivedi.benchmark.HDFSWritableByteChannel;
 
 /**
@@ -51,13 +51,20 @@ public class ParquetToArrow {
     private ArrowFileWriter arrowFileWriter;
     private RootAllocator ra = null;
 
+    private List<Double> time = new ArrayList<>();
+    private Long t0, t1, t2, t3, t4, t5, t6, t7 = 0L;
+
     public ParquetToArrow(){
+        t0 = System.nanoTime();
         this.conf = new Configuration();
         this.ra = new RootAllocator(Integer.MAX_VALUE);
         this.arrowPath = new Path("arrowOutput/");
+        t1 = System.nanoTime();
+        time.add((t1 - t0) / 1e9d);
     }
 
     public void setParquetInputFile(String parquetFile) throws Exception {
+        t2 = System.nanoTime();
         Path parqutFilePath = new Path(parquetFile);
         this.parquetFooter = ParquetFileReader.readFooter(conf,
                 parqutFilePath,
@@ -70,8 +77,14 @@ public class ParquetToArrow {
                 parqutFilePath,
                 this.parquetFooter.getBlocks(),
                 this.parquetSchema.getColumns());
+        t3 = System.nanoTime();
+        t4 = System.nanoTime();
         makeArrowSchema();
         setArrowFileWriter(convertParquetToArrowFileName(parqutFilePath));
+        t5 = System.nanoTime();
+
+        time.add((t3 - t2) / 1e9d);
+        time.add((t5 - t4) / 1e9d);
     }
 
     private String convertParquetToArrowFileName(Path parquetNamePath){
@@ -145,6 +158,7 @@ public class ParquetToArrow {
     }
 
     public void process() throws Exception {
+        t6 = System.nanoTime();
         PageReadStore pageReadStore = null;
         List<ColumnDescriptor> colDesc = parquetSchema.getColumns();
         List<FieldVector> fieldVectors = this.arrowVectorSchemaRoot.getFieldVectors();
@@ -199,7 +213,11 @@ public class ParquetToArrow {
         }
         this.arrowFileWriter.end();
         this.arrowFileWriter.close();
+        t7 = System.nanoTime();
+        time.add((t7 - t6) / 1e9d);
     }
+
+    public List<Double> getTime(){ return time; }
 
     private void writeIntColumn(ColumnReader creader, int dmax, FieldVector fieldVector, int rows) throws Exception {
         IntVector intVector = (IntVector) fieldVector;

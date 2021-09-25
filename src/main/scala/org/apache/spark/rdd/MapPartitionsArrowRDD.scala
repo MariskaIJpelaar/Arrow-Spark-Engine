@@ -1,10 +1,10 @@
 package org.apache.spark.rdd
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.{Partition, TaskContext}
+import org.apache.spark.{Partition, Partitioner, TaskContext}
 
 import scala.reflect.ClassTag
-import scala.reflect._
+import scala.reflect.runtime.universe._
 
 /**
  *
@@ -14,15 +14,20 @@ import scala.reflect._
  */
 private[spark] class MapPartitionsArrowRDD[U: ClassTag, T: ClassTag]
                         (var par : ArrowRDD[T], f : (TaskContext, Int, Iterator[T]) => Iterator[U])
-//                        extends ArrowRDD[U](par) with Logging{
-                          extends RDD[U](par) with Logging{
+                        (implicit tag : TypeTag[T], tag2 : TypeTag[U])
+                        extends ArrowRDD[U](par.context, par.data, par.numSlices, par.locationPrefs) with Logging{
 
-  override def getPartitions : Array[Partition] = firstParent[T].partitions
+  /* Update 17.09: used for .filter() transformations */
+  private var _preservePartitioning = false
+  override val partitioner = if (_preservePartitioning) par.partitioner else None
+
+  def setPreservePartitioning() : Unit = {
+    _preservePartitioning = true
+  }
+
+  override def getPartitions : Array[Partition] = par.partitions
 
   override def compute(split: Partition, context: TaskContext): Iterator[U] = {
-    logInfo("Called COMPUTE method on MapPartitionsArrowRDD %s, %s %s %s"
-      .format(id, split.index, {classTag[T].runtimeClass}, {classTag[U].runtimeClass}))
-    logInfo("Function call: %s".format(f.getClass.toString))
-    f(context, split.index, firstParent[T].iterator(split, context))
+    f(context, split.index, par.iterator(split, context))
   }
 }

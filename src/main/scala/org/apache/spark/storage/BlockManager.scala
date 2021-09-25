@@ -301,7 +301,7 @@ private[spark] class BlockManager(
     private def saveDeserializedValuesToMemoryStore(inputStream: InputStream): Boolean = {
       try {
         val values = serializerManager.dataDeserializeStream(blockId, inputStream)(classTag)
-        logInfo("Called save deserialized values: %d %s".format(values.length, classTag.toString()))
+
         memoryStore.putIteratorAsValues(blockId, values, classTag) match {
           case Right(_) => true
           case Left(iter) =>
@@ -318,7 +318,7 @@ private[spark] class BlockManager(
 
     private def saveSerializedValuesToMemoryStore(bytes: ChunkedByteBuffer): Boolean = {
       val memoryMode = level.memoryMode
-      logInfo("Called save serialized values: %d %s %s".format(bytes.size, classTag.toString(), memoryMode.toString))
+
       memoryStore.putBytes(blockId, blockSize, memoryMode, () => {
         if (memoryMode == MemoryMode.OFF_HEAP && bytes.chunks.exists(!_.isDirect)) {
           bytes.copy(Platform.allocateDirectBuffer)
@@ -355,8 +355,6 @@ private[spark] class BlockManager(
           null
         }
         if (level.useMemory) {
-          logInfo("Info on this block: %s, %s, %s, %s".format(blockId, level.deserialized.toString(),
-            level.memoryMode.toString, level.description))
           // Put it in memory first, even if it also has useDisk set to true;
           // We will drop it to disk later if the memory store can't hold it.
           val putSucceeded = if (level.deserialized) {
@@ -1424,7 +1422,6 @@ private[spark] class BlockManager(
         // Put it in memory first, even if it also has useDisk set to true;
         // We will drop it to disk later if the memory store can't hold it.
         if (level.deserialized) {
-          logInfo("Block put as values correctly: %s %s %s".format(blockId, level.memoryMode.toString, level.description))
           memoryStore.putIteratorAsValues(blockId, iterator(), classTag) match {
             case Right(s) =>
               size = s

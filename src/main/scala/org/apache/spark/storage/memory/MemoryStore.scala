@@ -154,7 +154,6 @@ private[spark] class MemoryStore(
       entries.synchronized {
         entries.put(blockId, entry)
       }
-
       logInfo("Block %s stored as bytes in memory (estimated size %s, free %s)".format(
         blockId, Utils.bytesToString(size), Utils.bytesToString(maxMemory - blocksMemoryUsed)))
       true
@@ -267,7 +266,6 @@ private[spark] class MemoryStore(
 
         logInfo("Block %s stored as values in memory (estimated size %s, free %s)".format(blockId,
           Utils.bytesToString(entry.size), Utils.bytesToString(maxMemory - blocksMemoryUsed)))
-        logInfo("Block %s is of class type %s (memory type: %s)".format(blockId, classTag.toString(), memoryMode.toString))
         Right(entry.size)
       } else {
         // We ran out of space while unrolling the values for this block
@@ -298,8 +296,8 @@ private[spark] class MemoryStore(
 
     val valuesHolder = new DeserializedValuesHolder[T](classTag)
 
-    //5.08 hack: memoryMode changed to OFF_HEAP statically...
-    putIterator(blockId, values, classTag, MemoryMode.OFF_HEAP, valuesHolder) match {
+    //22.09 hack: reverted back to ON_HEAP (default) --> TODO: make it switchable again
+    putIterator(blockId, values, classTag, MemoryMode.ON_HEAP, valuesHolder) match {
       case Right(storedSize) => Right(storedSize)
       case Left(unrollMemoryUsedByThisBlock) =>
         val unrolledIterator = if (valuesHolder.vector != null) {
