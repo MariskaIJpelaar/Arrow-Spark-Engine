@@ -1,12 +1,16 @@
 package nl.tudelft.ffiorini
 
 import com.github.animeshtrivedi.arrowexample.ParquetToArrow
+import org.apache.arrow.memory
+import org.apache.arrow.memory.RootAllocator
 import org.apache.arrow.parquet.ParquetToArrowConverter
-import org.apache.arrow.vector.ValueVector
+import org.apache.arrow.vector.{StringVector, ValueVector}
 import org.apache.log4j.BasicConfigurator
+import org.apache.spark.rdd.ArrowPartition
 import org.apache.spark.{ArrowSparkContext, SparkConf}
 
 import java.nio.charset.StandardCharsets
+import scala.reflect.ClassTag
 
 object Main {
   def main(args: Array[String]): Unit = {
@@ -22,8 +26,6 @@ object Main {
 //    val pta1 = new ParquetToArrowConverter
 //    pta1.process("data/5-million-int-triples-snappy.parquet")
 //
-//    val pta2 = new ParquetToArrowConverter
-//    pta2.process("data/big-example.parquet")
 //
 //    val pta3 = new ParquetToArrowConverter
 //    pta3.process("data/taxi-uncompressed-10000.parquet")
@@ -54,21 +56,52 @@ object Main {
 //
 //    println(r1.first())
 
-    val binVector = handler.getBinaryVector.get()
-    val binArr = Array[ValueVector](binVector)
+//    val binVector = handler.getBinaryVector.get()
+//    val binArr = Array[ValueVector](binVector)
+//
+//    val t0 = System.nanoTime()
+//    val binRDD = sc.makeArrowRDD[Array[Byte]](binArr, 10)
+//    val t1 = System.nanoTime()
+//    val result = binRDD.map(x => new String(x, StandardCharsets.UTF_8))
+//    val t2 = System.nanoTime()
+//
+//    println("FIRST: "+result.first())
+//    println("TYPE: "+result.toString)
+//    println("NO. PARTITIONS: "+result.getNumPartitions)
+//    println("PARTITION TYPES: "+result.partitions.foreach(println))
+////    println("COLLECT: ")
+////    result.collect().foreach(println)
+////    println("PARTITION DATA: "
+////      +result.partitions.foreach(x =>
+////      println(x.asInstanceOf[ArrowPartition].getVector.getMinorType+" "+x.asInstanceOf[ArrowPartition].getVector.getValueCount)))
+//
+//    val ttime = (t2 - t1) / 1e9d
+//    val rddt = (t1 - t0) / 1e9d
+//    println("TRANSFORMATION TIME: "+ttime)
+//    println("RDD CREATION TIME: "+rddt)
+//
+////    val result2 = binRDD.map(x => x.length)
+////    result2.first()
+////    val result1 = binRDD.map(x => (x, 1L))
+////    result1.first()
+//
+//
+//    val result1 = result.map(x => x.length)
+//    println("FIRST: "+result1.first())
 
-    val t0 = System.nanoTime()
-    val binRDD = sc.makeArrowRDD[Array[Byte]](binArr, 10)
-    val t1 = System.nanoTime()
-    val result = binRDD.map(x => new String(x, StandardCharsets.UTF_8))
-    val t2 = System.nanoTime()
+    val strv = new StringVector("vector", new RootAllocator(Long.MaxValue))
+    strv.allocateNew(10)
+    for (i <- 0 until 10) strv.set(i, "hello")
+    strv.setValueCount(10)
 
-    println("FIRST: "+result.first())
+    val strvArr = Array[ValueVector](strv)
+    val strdd = sc.makeArrowRDD[String](strvArr)
 
-    val ttime = (t2 - t1) / 1e9d
-    val rddt = (t1 - t0) / 1e9d
-    println("TIMING: "+ttime)
-    println("RDD: "+rddt)
+    val result = strdd.map(x => x.length)
+    val result2 = result.map(x => x.toString)
+
+    println(result.first())
+    println(result2.first())
 
 //    val vsr1 = pta.getVectorSchemaRoot
 //    val vsr2 = pco.getVectorSchemaRoot
@@ -98,10 +131,10 @@ object Main {
 //    println("RESULT2 COUNT: "+result2.count())
 //    println("RESULT2 FIRST: "+result2.first())
 
-    val data = Range(0, 100, 1).toArray
-    val rdd = sc.parallelize(data, 10)
-
-    val res = rdd.map(x => x.toString)
+//    val data = Range(0, 100, 1).toArray
+//    val rdd = sc.parallelize(data, 10)
+//
+//    val res = rdd.map(x => x.toString)
 //
 //    println("RDD INFO: "+res.toString+" "+res.count()+" "+res.getNumPartitions)
   }

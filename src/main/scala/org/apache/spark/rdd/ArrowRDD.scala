@@ -5,7 +5,7 @@ import org.apache.arrow.vector._
 import org.apache.spark._
 import org.apache.spark.internal.Logging
 
-import scala.reflect.ClassTag
+import scala.reflect.{ClassTag, classTag}
 import scala.reflect.runtime.universe._
 
 /**
@@ -66,161 +66,17 @@ private [spark] class ArrowRDD[T: ClassTag](@transient sc: SparkContext,
   }
 
   /***
-   * Returns a new ArrowRDD by applying a function to each element of this ArrowRDD.
-   * It doesn't actually override RDD.map(f: T => U) because of the extra complexity added by using TypeTags!
+   * Returns a MapPartitionsArrowRDD[U,T] that is then responsible to eventually convert the underlying
+   * ValueVector type (if the function f needs it) to hold values of type [U].
+   * The conversion logic is delegated to the underlying ArrowPartition, each of which converts its own
+   * ValueVector chunk independently (pretty much same logic as original MapPartitionsRDD).
    *
+   * It doesn't actually override RDD.map(f: T => U) because of the extra complexity added by using TypeTags!
    */
   def map[U: ClassTag](f: T => U)(implicit tag: TypeTag[U], tag2 : TypeTag[T]) : ArrowRDD[U] = {
-    /* If T and U are the same type (i.e. long => long), then there's no need to change the underlying vector's structure
-    * Otherwise, some changes may be required to change from type to type (i.e. long => String) */
-    if (tag.tpe == tag2.tpe) defaultMap(f)
-
-    /* Return type (classTag[U]), from which the whole logic for creating a new ArrowRDD depends on */
-    val cl = tag.tpe.baseClasses.head
-
-    /* The following logic first checks the return type, then based on the original type it calls the correct
-    * function createRddFromTransformation. Note that the case of T == U has been handled before.
-    * The checks are performed using string representations (to avoid confusion with reflection types and naming */
-
-    //TODO: change checks to not use string representation
-    if (cl.toString.contains("String")){
-      /* Starting RDD can't be ArrowRDD[String] (use defaultMap() instead) */
-      createRddFromTransformation[U, T](f, data.head, numSlices, 1, "String")
-    }
-    else if (cl.toString.contains("Long")){
-      /* Starting RDD can't be ArrowRDD[Long] (use defaultMap() instead) */
-      createRddFromTransformation[U, T](f, data.head, numSlices, 1, "Long")
-    }
-    else if (cl.toString.contains("Int")){
-      createRddFromTransformation[U, T](f, data.head, numSlices, 1, "Int")
-    }
-    else if (cl.toString.contains("Tuple2")){
-      /* There's two typeArgs that define the Tuple2 type for each parameter. In case of a normal transformation, the second
-      * typeArg contains the result type (i.e. Long => (Long, String), where the function only applies to the second element of
-      * the tuple -for simplicity, that's the easiest case) */
-      val tpe = tag.tpe.typeArgs.last
-
-      if (tpe.toString.contains("Long")){
-        createRddFromTransformation[U, T](f, data.head, numSlices, 2, "Long")
-      }
-      else if (tpe.toString.contains("Int")){
-        createRddFromTransformation[U, T](f, data.head, numSlices, 2, "Int")
-      }
-      else if (tpe.toString.contains("String")){
-        createRddFromTransformation[U, T](f, data.head, numSlices, 2, "String")
-      }
-      else throw new SparkException("Unsupported transformation in Tuple2")
-    }
-    else throw new SparkException("Unsupported return type [U] in transformation")
-  }
-
-  /***
-   * The default map(f : T => U) implementation, as directly taken from RDD.scala
-   * It's used only when the function f only applies a transformation on the values, not their types.
-   * In that case, the whole Arrow-native vector support needs to change to accomodate the newly created vector(s).
-   *
-   * @return a MapPartitionsArrowRDD, where T == U
-   */
-  def defaultMap[U: ClassTag](f: T => U)(implicit tag: TypeTag[U], tag2: TypeTag[T]): ArrowRDD[U] = {
     val cleanF = sc.clean(f)
-    new MapPartitionsArrowRDD[U, T](this, (_, _, iter) => iter.map(cleanF))
+    new MapPartitionsArrowRDD[U, T](this, cleanF)
   }
-
-  override def filter(f: T => Boolean): ArrowRDD[T] = {
-    val cleanF = sc.clean(f)
-
-    val newRDD = new MapPartitionsArrowRDD[T, T](this, (_, _, iter) => iter.filter(cleanF))
-    newRDD.setPreservePartitioning()
-    newRDD
-  }
-
-  /***
-   * As the name suggests, this function is used to create a new Arrow-backed RDD when a function f has been applied to an
-   * existing ArrowRDD, such as the case of narrow or wide transformations.
-   * It creates an Arrow-backed RDD where each element of the previous one has been converted to the correct values after
-   * the function f has been applied, thus creating the right ValueVector type according to the return type of the function.
-   * In case of composite return types (Tuple2) it creates both vectors to be used, according to the type and the transformation itself.
-   *
-   * It works similarly to MapPartitionsRDD, but in this case the Arrow-native data structures are maintained
-   * throughout the execution.
-   *
-   * @param f the function to be applied to each element of the initial ValueVector
-   * @param vec the vector with which the ArrowRDD has been created
-   * @param numSlices the no. of partitions for the new ArrowRDD
-   * @param numVecs the no. of vectors required for the new RDD (2 in case of Tuple return type)
-   * @param tpe the type of vector that needs to be created
-   * @return a new ArrowRDD where the function f has been already applied to all elements, maintaining the Arrow structure
-   */
-  def createRddFromTransformation[U: ClassTag, T: ClassTag](f: T => U, @transient vec: ValueVector,
-                                                            numSlices: Int,
-                                                            numVecs: Int,
-                                                            tpe: String)
-                                                           (implicit tag : TypeTag[U], tag2 : TypeTag[T]) : ArrowRDD[U] = {
-    var vecRes: ValueVector = new ZeroVector
-    val valCount = vec.getValueCount
-    val cleanF = sc.clean(f)
-
-    tpe match {
-      case "String" => {
-        vecRes = new StringVector("vector", new RootAllocator(Long.MaxValue))
-        vecRes.asInstanceOf[StringVector].allocateNew(valCount)
-        for (i <- 0 until valCount){
-          /* if numVecs is larger than one, it means the return type is of type Tuple2 so the function
-          * applied also returns a tuple (thus the different logic in the "else" clause) */
-          if (numVecs == 1){
-            vecRes.asInstanceOf[StringVector]
-                .setSafe(i, cleanF.apply(vec.getObject(i).asInstanceOf[T]).asInstanceOf[String])
-          }
-          else vecRes.asInstanceOf[StringVector]
-                  .setSafe(i, cleanF.apply(vec.getObject(i).asInstanceOf[T]).asInstanceOf[(T, U)]._2
-                  .asInstanceOf[String])
-        }
-        vecRes.setValueCount(valCount)
-      }
-      case "Long" => {
-        vecRes = new BigIntVector("vector", new RootAllocator(Long.MaxValue))
-        vecRes.asInstanceOf[BigIntVector].allocateNew(valCount)
-        for (i <- 0 until valCount){
-          if (numVecs == 1) {
-            vecRes.asInstanceOf[BigIntVector].setSafe(i, cleanF.apply(vec.getObject(i).asInstanceOf[T]).asInstanceOf[Long])
-          }
-          else vecRes.asInstanceOf[BigIntVector]
-                  .setSafe(i, cleanF.apply(vec.getObject(i).asInstanceOf[T]).asInstanceOf[(T, U)]._2
-                  .asInstanceOf[Long])
-        }
-        vecRes.setValueCount(valCount)
-      }
-      case "Int" => {
-        vecRes = new IntVector("vector", new RootAllocator(Long.MaxValue))
-        vecRes.asInstanceOf[IntVector].allocateNew(valCount)
-        for (i <- 0 until valCount){
-          if (numVecs == 1) {
-            vecRes.asInstanceOf[IntVector].setSafe(i, cleanF.apply(vec.getObject(i).asInstanceOf[T]).asInstanceOf[Int])
-          }
-          else vecRes.asInstanceOf[IntVector]
-            .setSafe(i, cleanF.apply(vec.getObject(i).asInstanceOf[T]).asInstanceOf[(T, U)]._2
-              .asInstanceOf[Int])
-        }
-        vecRes.setValueCount(valCount)
-      }
-      case _ => throw new SparkException("Unsupported conversion!")
-    }
-
-    /* Depending on the numbers of ValueVector required (one for a type-to-type conversion, two in case of a Tuple-like
-    * conversion), it creates the correct number of parameters to call the ArrowRDD constructor with */
-    var vecArray : Array[ValueVector] = null
-    numVecs match{
-      case 1 => {
-        vecArray = Array[ValueVector](vecRes)
-      }
-      case 2 => {
-        vecArray = Array[ValueVector](vec, vecRes)
-      }
-      case _ => throw new SparkException("ArrowRDD only supports 2 vectors at most!")
-    }
-    new ArrowRDD[U](this.sc, vecArray, numSlices, Map[Int, Seq[String]]())
-  }
-
 }
 
 private object ArrowRDD {

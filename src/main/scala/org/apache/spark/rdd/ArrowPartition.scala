@@ -5,8 +5,10 @@ import org.apache.arrow.vector.types.Types.MinorType
 import org.apache.arrow.vector.{BigIntVector, IntVector, StringVector, ValueVector, VarBinaryVector, ZeroVector}
 import org.apache.spark.{Partition, SparkException}
 import org.apache.spark.internal.Logging
+import org.apache.spark.rdd.RDDOperationScope.withScope
 
 import java.io.{Externalizable, ObjectInput, ObjectOutput}
+import scala.reflect.{ClassTag, classTag}
 import scala.reflect.runtime.universe._
 
 /**
@@ -58,7 +60,6 @@ class ArrowPartition extends Partition with Externalizable with Logging {
       override def next(): T = {
         val value = _data.getObject(idx).asInstanceOf[T]
         idx += 1
-
         value
       }
     }
@@ -111,27 +112,141 @@ class ArrowPartition extends Partition with Externalizable with Logging {
         _data = new IntVector("vector", allocator)
         _data.asInstanceOf[IntVector].allocateNew(len)
         for (i <- 0 until len) _data.asInstanceOf[IntVector]
-          .setSafe(i, in.readObject().asInstanceOf[Int])
+          .set(i, in.readObject().asInstanceOf[Int])
         _data.setValueCount(len)
       case MinorType.BIGINT =>
         _data = new BigIntVector("vector", allocator)
         _data.asInstanceOf[BigIntVector].allocateNew(len)
         for (i <- 0 until len) _data.asInstanceOf[BigIntVector]
-          .setSafe(i, in.readObject().asInstanceOf[Long])
+          .set(i, in.readObject().asInstanceOf[Long])
         _data.setValueCount(len)
       case MinorType.VARBINARY =>
         _data = new VarBinaryVector("vector", allocator)
         _data.asInstanceOf[VarBinaryVector].allocateNew(len)
         for (i <- 0 until len) _data.asInstanceOf[VarBinaryVector]
-          .setSafe(i, in.readObject().asInstanceOf[Array[Byte]])
+          .set(i, in.readObject().asInstanceOf[Array[Byte]])
         _data.setValueCount(len)
       case MinorType.STRING =>
         _data = new StringVector("vector", allocator)
         _data.asInstanceOf[StringVector].allocateNew(len)
         for (i <- 0 until len) _data.asInstanceOf[StringVector]
-          .setSafe(i, in.readObject().asInstanceOf[String])
+          .set(i, in.readObject().asInstanceOf[String])
         _data.setValueCount(len)
       case _ => throw new SparkException("Unsupported Arrow Vector")
     }
+  }
+
+  def convert[U: ClassTag, T: ClassTag](f: T => U)
+                                       (implicit tag: TypeTag[U], tag2: TypeTag[T]) : Unit = {
+    var vecRes : ValueVector = new ZeroVector
+    val count = _data.getValueCount
+    val ctag = classTag[U]
+
+    val allocator = new RootAllocator(Long.MaxValue)
+    println("VECTOR CONVERSION STARTED: "+_data.getMinorType)
+//    val tpe = tag.tpe.typeArgs.last
+
+    if (ctag.equals(classTag[java.lang.String])){
+      vecRes = new StringVector("vector", allocator)
+      vecRes.asInstanceOf[StringVector].allocateNew(count)
+      for (i <- 0 until count){
+//        vecRes.asInstanceOf[StringVector]
+//          .set(i, f.apply(_data.getObject(i).asInstanceOf[T]).asInstanceOf[String])
+        println("VECRES ")
+        val one = vecRes.asInstanceOf[StringVector]
+        println(one.getMinorType)
+        println("DATA ")
+        val two = _data.getObject(i)
+        val twotwo = 3000
+        println(two + " ["+two.getClass+"]")
+        println("AS INSTANCE OF (three) ")
+        val three = two.asInstanceOf[T]
+        val threethree = twotwo.asInstanceOf[T]
+        println(three +" ["+three.getClass+"]")
+        println(classTag[T])
+        println("APPLY ")
+        val fourfour = f.apply(threethree)
+        println(fourfour +" ["+fourfour.getClass+"]")
+        val four = f.apply(three)
+        println(four +" ["+four.getClass+"]")
+        println("AS INSTANCE OF (five) ")
+        val five = four.asInstanceOf[String]
+        println(five +" ["+five.getClass+"]")
+        println("SET ")
+        val six = one.set(i, five)
+      }
+      vecRes.setValueCount(count)
+      _data.reset()
+
+      _data = new StringVector("vector", allocator)
+      _data.asInstanceOf[StringVector].allocateNew(count)
+      for (i <- 0 until count){
+        _data.asInstanceOf[StringVector].set(i, vecRes.getObject(i).asInstanceOf[String])
+      }
+      _data.setValueCount(count)
+      vecRes.clear()
+    }
+    else if (ctag.equals(classTag[Long])){
+      vecRes = new BigIntVector("vector", allocator)
+      vecRes.asInstanceOf[BigIntVector].allocateNew(count)
+      for (i <- 0 until count){
+        vecRes.asInstanceOf[BigIntVector]
+          .set(i, f.apply(_data.getObject(i).asInstanceOf[T]).asInstanceOf[Long])
+      }
+      vecRes.setValueCount(count)
+      _data.reset()
+
+      _data = new BigIntVector("vector", allocator)
+      _data.asInstanceOf[BigIntVector].allocateNew(count)
+      for (i <- 0 until count){
+        _data.asInstanceOf[BigIntVector].set(i, vecRes.getObject(i).asInstanceOf[Long])
+      }
+      _data.setValueCount(count)
+      vecRes.clear()
+    }
+    else if (ctag.equals(classTag[Int])){
+      vecRes = new IntVector("vector", allocator)
+      vecRes.asInstanceOf[IntVector].allocateNew(count)
+      for (i <- 0 until count){
+        //        vecRes.asInstanceOf[IntVector]
+        //          .set(i, f.apply(_data.getObject(i).asInstanceOf[T]).asInstanceOf[Int])
+        println("VECRES ")
+        val one = vecRes.asInstanceOf[IntVector]
+        println(one.getMinorType)
+        println("DATA ")
+        val two = _data.getObject(i)
+        println(two + " ["+two.getClass+"]")
+        println("AS INSTANCE OF (three) ")
+        val three = two.asInstanceOf[T]
+        println(three +" ["+three.getClass+"]")
+        println("APPLY ")
+        val four = f.apply(three)
+        println(four +" ["+four.getClass+"]")
+        println("AS INSTANCE OF (five) ")
+        val five = four.asInstanceOf[Int]
+        println(five +" ["+five.getClass+"]")
+        println("SET ")
+        val six = one.set(i, five)
+      }
+      vecRes.setValueCount(count)
+      _data.reset()
+
+      _data = new IntVector("vector", allocator)
+      _data.asInstanceOf[IntVector].allocateNew(count)
+      for (i <- 0 until count){
+        _data.asInstanceOf[IntVector].set(i, vecRes.getObject(i).asInstanceOf[Int])
+      }
+      _data.setValueCount(count)
+      vecRes.clear()
+    }
+    else throw new SparkException("Unsupported one-to-one conversion between types %s and %s"
+      .format(tag2, tag))
+
+    println("VECTOR CONVERSION FINISHED: "+_data.getMinorType)
+  }
+
+  def convertToComposite[U: ClassTag, T: ClassTag](f: T => U)
+                                                  (implicit tag: TypeTag[U], tag2: TypeTag[T]) : ArrowCompositePartition = {
+    ???
   }
 }

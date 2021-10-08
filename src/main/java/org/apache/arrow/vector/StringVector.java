@@ -68,6 +68,8 @@ public class StringVector extends BaseVariableWidthVector
         setSafe(index, value.getBytes());
     }
 
+    public void set(int index, String value){ set(index, value.getBytes()); }
+
     public String get(int index)
     {
         assert index >= 0;
