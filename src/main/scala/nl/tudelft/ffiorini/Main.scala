@@ -56,52 +56,61 @@ object Main {
 //
 //    println(r1.first())
 
-//    val binVector = handler.getBinaryVector.get()
-//    val binArr = Array[ValueVector](binVector)
-//
-//    val t0 = System.nanoTime()
-//    val binRDD = sc.makeArrowRDD[Array[Byte]](binArr, 10)
-//    val t1 = System.nanoTime()
-//    val result = binRDD.map(x => new String(x, StandardCharsets.UTF_8))
-//    val t2 = System.nanoTime()
-//
-//    println("FIRST: "+result.first())
-//    println("TYPE: "+result.toString)
-//    println("NO. PARTITIONS: "+result.getNumPartitions)
-//    println("PARTITION TYPES: "+result.partitions.foreach(println))
-////    println("COLLECT: ")
-////    result.collect().foreach(println)
+    val binVector = handler.getBinaryVector.get()
+    val binArr = Array[ValueVector](binVector)
+
+    val t0 = System.nanoTime()
+    val binRDD = sc.makeArrowRDD[Array[Byte]](binArr, 10)
+    val t1 = System.nanoTime()
+    val result = binRDD.map(x => new String(x, StandardCharsets.UTF_8))
+    val t2 = System.nanoTime()
+
+    println("FIRST: "+result.first())
+    println("TYPE: "+result.toString)
+    println("NO. PARTITIONS: "+result.getNumPartitions)
+    println("PARTITION TYPES: ")
+    result.partitions.foreach(x => println(x.asInstanceOf[ArrowPartition].getVector.getMinorType))
+//    println("COLLECT: ")
+//    result.collect().foreach(println)
 ////    println("PARTITION DATA: "
 ////      +result.partitions.foreach(x =>
 ////      println(x.asInstanceOf[ArrowPartition].getVector.getMinorType+" "+x.asInstanceOf[ArrowPartition].getVector.getValueCount)))
 //
-//    val ttime = (t2 - t1) / 1e9d
-//    val rddt = (t1 - t0) / 1e9d
-//    println("TRANSFORMATION TIME: "+ttime)
-//    println("RDD CREATION TIME: "+rddt)
+    val ttime = (t2 - t1) / 1e9d
+    val rddt = (t1 - t0) / 1e9d
+    println("TRANSFORMATION TIME: "+ttime)
+    println("RDD CREATION TIME: "+rddt)
+
+//    val result2 = binRDD.map(x => x.length)
+//    result2.first()
+//    val result1 = binRDD.map(x => (x, 1L))
+//    result1.first()
+
+    val t3 = System.nanoTime()
+    val result1 = result.map(x => x.length)
+    val t4 = System.nanoTime()
+
+    val ttime2 = (t4 - t3) / 1e9d
+    println("TRANSFORMATION TIME (2) "+ttime2)
+    println("FIRST: "+result1.first())
+    println("TYPE: "+result1.toString)
+    println("NO. PARTITIONS: "+result1.getNumPartitions)
+    println("PARTITION TYPES: ")
+    result1.partitions.foreach(x => println(x.asInstanceOf[ArrowPartition].getVector.getMinorType))
+
+//    val strv = new StringVector("vector", new RootAllocator(Long.MaxValue))
+//    strv.allocateNew(10)
+//    for (i <- 0 until 10) strv.set(i, "hello")
+//    strv.setValueCount(10)
 //
-////    val result2 = binRDD.map(x => x.length)
-////    result2.first()
-////    val result1 = binRDD.map(x => (x, 1L))
-////    result1.first()
+//    val strvArr = Array[ValueVector](strv)
+//    val strdd = sc.makeArrowRDD[String](strvArr)
 //
+//    val result = strdd.map(x => x.length)
+//    val result2 = result.map(x => x.toString)
 //
-//    val result1 = result.map(x => x.length)
-//    println("FIRST: "+result1.first())
-
-    val strv = new StringVector("vector", new RootAllocator(Long.MaxValue))
-    strv.allocateNew(10)
-    for (i <- 0 until 10) strv.set(i, "hello")
-    strv.setValueCount(10)
-
-    val strvArr = Array[ValueVector](strv)
-    val strdd = sc.makeArrowRDD[String](strvArr)
-
-    val result = strdd.map(x => x.length)
-    val result2 = result.map(x => x.toString)
-
-    println(result.first())
-    println(result2.first())
+//    println("CLASS (first element of result): "+result.first().getClass)
+//    println("CLASS (first element of result2): "+result2.first().getClass)
 
 //    val vsr1 = pta.getVectorSchemaRoot
 //    val vsr2 = pco.getVectorSchemaRoot

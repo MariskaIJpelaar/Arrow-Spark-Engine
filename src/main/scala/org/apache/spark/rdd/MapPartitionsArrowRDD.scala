@@ -3,6 +3,7 @@ package org.apache.spark.rdd
 import org.apache.spark.internal.Logging
 import org.apache.spark.{Partition, Partitioner, SparkException, TaskContext}
 
+import scala.collection.mutable.ArrayBuffer
 import scala.reflect.{ClassTag, classTag}
 import scala.reflect.runtime.universe._
 
@@ -25,7 +26,9 @@ private[spark] class MapPartitionsArrowRDD[U: ClassTag, T: ClassTag]
     _preservePartitioning = true
   }
 
-  override def getPartitions : Array[Partition] = par.partitions
+  override def getPartitions : Array[Partition] = {
+    par.partitions.map(x => x.asInstanceOf[ArrowPartition].convert[U,T](f))
+  }
 
   override def compute(split: Partition, context: TaskContext): Iterator[U] = {
     if (tag.equals(tag2)){
@@ -38,7 +41,6 @@ private[spark] class MapPartitionsArrowRDD[U: ClassTag, T: ClassTag]
       split.asInstanceOf[ArrowPartition].iterator[U]
     }
     else {
-      split.asInstanceOf[ArrowPartition].convert[U,T](f)
       split.asInstanceOf[ArrowPartition].iterator[U]
     }
   }

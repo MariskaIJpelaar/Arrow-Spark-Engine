@@ -137,54 +137,31 @@ class ArrowPartition extends Partition with Externalizable with Logging {
   }
 
   def convert[U: ClassTag, T: ClassTag](f: T => U)
-                                       (implicit tag: TypeTag[U], tag2: TypeTag[T]) : Unit = {
+                                       (implicit tag: TypeTag[U], tag2: TypeTag[T]) : ArrowPartition = {
     var vecRes : ValueVector = new ZeroVector
     val count = _data.getValueCount
     val ctag = classTag[U]
 
     val allocator = new RootAllocator(Long.MaxValue)
-    println("VECTOR CONVERSION STARTED: "+_data.getMinorType)
+//    println("VECTOR CONVERSION STARTED: "+_data.getMinorType)
 //    val tpe = tag.tpe.typeArgs.last
 
     if (ctag.equals(classTag[java.lang.String])){
       vecRes = new StringVector("vector", allocator)
       vecRes.asInstanceOf[StringVector].allocateNew(count)
       for (i <- 0 until count){
-//        vecRes.asInstanceOf[StringVector]
-//          .set(i, f.apply(_data.getObject(i).asInstanceOf[T]).asInstanceOf[String])
-        println("VECRES ")
-        val one = vecRes.asInstanceOf[StringVector]
-        println(one.getMinorType)
-        println("DATA ")
-        val two = _data.getObject(i)
-        val twotwo = 3000
-        println(two + " ["+two.getClass+"]")
-        println("AS INSTANCE OF (three) ")
-        val three = two.asInstanceOf[T]
-        val threethree = twotwo.asInstanceOf[T]
-        println(three +" ["+three.getClass+"]")
-        println(classTag[T])
-        println("APPLY ")
-        val fourfour = f.apply(threethree)
-        println(fourfour +" ["+fourfour.getClass+"]")
-        val four = f.apply(three)
-        println(four +" ["+four.getClass+"]")
-        println("AS INSTANCE OF (five) ")
-        val five = four.asInstanceOf[String]
-        println(five +" ["+five.getClass+"]")
-        println("SET ")
-        val six = one.set(i, five)
+        vecRes.asInstanceOf[StringVector]
+          .set(i, f.apply(_data.getObject(i).asInstanceOf[T]).asInstanceOf[String])
       }
       vecRes.setValueCount(count)
-      _data.reset()
-
-      _data = new StringVector("vector", allocator)
-      _data.asInstanceOf[StringVector].allocateNew(count)
-      for (i <- 0 until count){
-        _data.asInstanceOf[StringVector].set(i, vecRes.getObject(i).asInstanceOf[String])
-      }
-      _data.setValueCount(count)
-      vecRes.clear()
+      _data.close()
+//      _data = new StringVector("vector", allocator)
+//      _data.asInstanceOf[StringVector].allocateNew(count)
+//      for (i <- 0 until count){
+//        _data.asInstanceOf[StringVector].set(i, vecRes.getObject(i).asInstanceOf[String])
+//      }
+//      _data.setValueCount(count)
+//      vecRes.clear()
     }
     else if (ctag.equals(classTag[Long])){
       vecRes = new BigIntVector("vector", allocator)
@@ -194,55 +171,40 @@ class ArrowPartition extends Partition with Externalizable with Logging {
           .set(i, f.apply(_data.getObject(i).asInstanceOf[T]).asInstanceOf[Long])
       }
       vecRes.setValueCount(count)
-      _data.reset()
+      _data.close()
 
-      _data = new BigIntVector("vector", allocator)
-      _data.asInstanceOf[BigIntVector].allocateNew(count)
-      for (i <- 0 until count){
-        _data.asInstanceOf[BigIntVector].set(i, vecRes.getObject(i).asInstanceOf[Long])
-      }
-      _data.setValueCount(count)
-      vecRes.clear()
+//      _data = new BigIntVector("vector", allocator)
+//      _data.asInstanceOf[BigIntVector].allocateNew(count)
+//      for (i <- 0 until count){
+//        _data.asInstanceOf[BigIntVector].set(i, vecRes.getObject(i).asInstanceOf[Long])
+//      }
+//      _data.setValueCount(count)
+//      vecRes.clear()
     }
     else if (ctag.equals(classTag[Int])){
       vecRes = new IntVector("vector", allocator)
       vecRes.asInstanceOf[IntVector].allocateNew(count)
       for (i <- 0 until count){
-        //        vecRes.asInstanceOf[IntVector]
-        //          .set(i, f.apply(_data.getObject(i).asInstanceOf[T]).asInstanceOf[Int])
-        println("VECRES ")
-        val one = vecRes.asInstanceOf[IntVector]
-        println(one.getMinorType)
-        println("DATA ")
-        val two = _data.getObject(i)
-        println(two + " ["+two.getClass+"]")
-        println("AS INSTANCE OF (three) ")
-        val three = two.asInstanceOf[T]
-        println(three +" ["+three.getClass+"]")
-        println("APPLY ")
-        val four = f.apply(three)
-        println(four +" ["+four.getClass+"]")
-        println("AS INSTANCE OF (five) ")
-        val five = four.asInstanceOf[Int]
-        println(five +" ["+five.getClass+"]")
-        println("SET ")
-        val six = one.set(i, five)
+                vecRes.asInstanceOf[IntVector]
+                  .set(i, f.apply(_data.getObject(i).asInstanceOf[T]).asInstanceOf[Int])
       }
       vecRes.setValueCount(count)
-      _data.reset()
+      _data.close()
 
-      _data = new IntVector("vector", allocator)
-      _data.asInstanceOf[IntVector].allocateNew(count)
-      for (i <- 0 until count){
-        _data.asInstanceOf[IntVector].set(i, vecRes.getObject(i).asInstanceOf[Int])
-      }
-      _data.setValueCount(count)
-      vecRes.clear()
+//      _data = new IntVector("vector", allocator)
+//      _data.asInstanceOf[IntVector].allocateNew(count)
+//      for (i <- 0 until count){
+//        _data.asInstanceOf[IntVector].set(i, vecRes.getObject(i).asInstanceOf[Int])
+//      }
+//      _data.setValueCount(count)
+//      vecRes.clear()
     }
     else throw new SparkException("Unsupported one-to-one conversion between types %s and %s"
       .format(tag2, tag))
 
-    println("VECTOR CONVERSION FINISHED: "+_data.getMinorType)
+//    println("VECTOR CONVERSION FINISHED: "+_data.getMinorType)
+//    println("VECTOR CONVERSION FINISHED: "+vecRes.getMinorType)
+    new ArrowPartition(_rddId, _slice, vecRes)
   }
 
   def convertToComposite[U: ClassTag, T: ClassTag](f: T => U)
