@@ -297,7 +297,8 @@ private[spark] class MemoryStore(
     val valuesHolder = new DeserializedValuesHolder[T](classTag)
 
     //22.09 hack: reverted back to ON_HEAP (default) --> TODO: make it switchable again
-    putIterator(blockId, values, classTag, MemoryMode.ON_HEAP, valuesHolder) match {
+//    putIterator(blockId, values, classTag, MemoryMode.ON_HEAP, valuesHolder) match {
+    putIterator(blockId, values, classTag, MemoryMode.OFF_HEAP, valuesHolder) match {
       case Right(storedSize) => Right(storedSize)
       case Left(unrollMemoryUsedByThisBlock) =>
         val unrolledIterator = if (valuesHolder.vector != null) {
@@ -308,7 +309,8 @@ private[spark] class MemoryStore(
 
         Left(new PartiallyUnrolledIterator(
           this,
-          MemoryMode.ON_HEAP,
+//          MemoryMode.ON_HEAP,
+          MemoryMode.OFF_HEAP,
           unrollMemoryUsedByThisBlock,
           unrolled = unrolledIterator,
           rest = values))

@@ -328,6 +328,7 @@ abstract class RDD[T: ClassTag](
    * subclasses of RDD.
    */
   final def iterator(split: Partition, context: TaskContext): Iterator[T] = {
+
     if (storageLevel != StorageLevel.NONE) {
       getOrCompute(split, context)
     } else {
@@ -365,7 +366,6 @@ abstract class RDD[T: ClassTag](
   private[spark] def computeOrReadCheckpoint(split: Partition, context: TaskContext): Iterator[T] =
   {
     if (isCheckpointedAndMaterialized) {
-      logInfo("Is checkpointed and materialized? %s".format(isCheckpointedAndMaterialized))
       firstParent[T].iterator(split, context)
     } else {
       compute(split, context)
@@ -376,7 +376,6 @@ abstract class RDD[T: ClassTag](
    * Gets or computes an RDD partition. Used by RDD.iterator() when an RDD is cached.
    */
   private[spark] def getOrCompute(partition: Partition, context: TaskContext): Iterator[T] = {
-    logInfo("Called getOrCompute inside RDD")
     val blockId = RDDBlockId(id, partition.index)
     logInfo("Block ID: %s".format(blockId))
     var readCachedBlock = true
@@ -387,7 +386,6 @@ abstract class RDD[T: ClassTag](
     }) match {
       // Block hit.
       case Left(blockResult) =>
-        logInfo("Hit block result! %s".format(blockResult.toString))
         if (readCachedBlock) {
           val existingMetrics = context.taskMetrics().inputMetrics
           existingMetrics.incBytesRead(blockResult.bytes)
@@ -402,7 +400,6 @@ abstract class RDD[T: ClassTag](
         }
       // Need to compute the block.
       case Right(iter) =>
-        logInfo("Hit iterator! %s".format(iter.length))
         new InterruptibleIterator(context, iter.asInstanceOf[Iterator[T]])
     }
   }

@@ -58,8 +58,10 @@ private [spark] class ShuffledArrowRDD[K: ClassTag, V: ClassTag, C: ClassTag](
 
   override val partitioner = Some(part)
 
+
   override def getPartitions: Array[Partition] = {
-    Array.tabulate[Partition](part.numPartitions)(i => new ArrowPartition(id, i, _data.head))
+    prev.partitions
+//    Array.tabulate[Partition](part.numPartitions)(i => new ArrowPartition(id, i, _data))
   }
 
   override protected def getPreferredLocations(partition: Partition): Seq[String] = {
