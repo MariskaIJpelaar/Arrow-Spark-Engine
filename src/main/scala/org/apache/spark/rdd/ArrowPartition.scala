@@ -1,6 +1,7 @@
 package org.apache.spark.rdd
 
-import org.apache.arrow.memory.RootAllocator
+import org.apache.arrow.memory
+import org.apache.arrow.memory.{ArrowBuf, RootAllocator}
 import org.apache.arrow.vector.types.Types.MinorType
 import org.apache.arrow.vector.{BigIntVector, IntVector, StringVector, ValueVector, VarBinaryVector, ZeroVector}
 import org.apache.spark.{Partition, SparkException}
@@ -29,20 +30,30 @@ class ArrowPartition extends Partition with Externalizable with Logging {
 
   private var _rddId : Long = 0L
   private var _slice : Int = 0
-  @transient private var _data : ValueVector = new ZeroVector
+  private var _data : Array[ValueVector] = Array[ValueVector](new ZeroVector, new ZeroVector)
 
-  def this(rddId : Long, slice : Int, data : ValueVector) = {
+  private val _len = _data.length
+
+  def this(rddId : Long, slice : Int, data : Array[ValueVector]) = {
     this
+    require(_len <= 2, "Required maximum 2 ValueVector as parameter")
     _rddId = rddId
     _slice = slice
     _data = data
   }
 
-  /* Make vector accessible for sub-classes (when ShuffledArrowPartition
-  * gets proper implementation, if required. If not, leave it for future */
-  def getVector: ValueVector = {
+  def this(rddId: Long, slice : Int, data : ValueVector) = {
+    this
+    _rddId = rddId
+    _slice = slice
+    _data = Array[ValueVector](data, new ZeroVector)
+  }
+
+  /* Make vector accessible for sub-classes and debug, if required. If not, leave it for future */
+  def getVectors: Array[ValueVector] = {
     _data
   }
+
   /**
    * This iterator actually iterates over the vector and retrieves each value
    * It's called by the compute(...) method in the ArrowRDD and it generalizes
@@ -52,15 +63,37 @@ class ArrowPartition extends Partition with Externalizable with Logging {
    * @return the Iterator[T] over the vector values
    */
   def iterator[T: TypeTag] : Iterator[T] = {
-    var idx = 0
+    require(_data.last.isInstanceOf[ZeroVector],
+    "This iterator can only be called for single-vector ArrowPartitions")
 
+    var idx = 0
     new Iterator[T] {
-      override def hasNext: Boolean = idx < _data.getValueCount
+      override def hasNext: Boolean = idx < _data.head.getValueCount
 
       override def next(): T = {
-        val value = _data.getObject(idx).asInstanceOf[T]
+        val value = _data.head.getObject(idx).asInstanceOf[T]
         idx += 1
         value
+      }
+    }
+  }
+
+  def iterator2[T: TypeTag, U: TypeTag] : Iterator[(T,U)] = {
+    require(_data.head.getValueCount == _data.last.getValueCount,
+    "Both vectors have to be equal in size")
+    require(!_data.last.isInstanceOf[ZeroVector],
+    "This iterator can only be called with second vector initialized")
+
+    var idx = 0
+    new Iterator[(T, U)] {
+      override def hasNext: Boolean = idx < _data.head.getValueCount
+
+      override def next(): (T, U) = {
+        val value1 = _data.head.getObject(idx).asInstanceOf[T]
+        val value2 = _data.last.getObject(idx).asInstanceOf[U]
+        idx += 1
+
+        (value1, value2)
       }
     }
   }
@@ -86,129 +119,406 @@ class ArrowPartition extends Partition with Externalizable with Logging {
     out.writeLong(_rddId)
     out.writeInt(_slice)
 
-    val len = _data.getValueCount
+    var nVecs = 2
+    if (_data.last.isInstanceOf[ZeroVector]) nVecs = 1
+    out.writeInt(nVecs)
+
+    /* Since it's required that both vectors have the same length */
+    val len = _data.head.getValueCount
     out.writeInt(len)
-    val vecType = _data.getMinorType
-    out.writeObject(vecType)
-    for (i <- 0 until len) out.writeObject(_data.getObject(i))
+
+    nVecs match {
+      case 1 =>
+        val vecType = _data.head.getMinorType
+        out.writeObject(vecType)
+        for (i <- 0 until len) out.writeObject(_data.head.getObject(i))
+      case 2 =>
+        val minorType1 = _data.head.getMinorType
+        val minorType2 = _data.last.getMinorType
+
+        out.writeObject((minorType1, minorType2)) //pass it as tuple (easier reading?)
+
+        //write vector1 first, then vector2 (easier reading?)
+        for (i <- 0 until len) {
+          out.writeObject(_data.head.getObject(i))
+          out.writeObject(_data.last.getObject(i))
+        }
+      case _ => throw new SparkException("writeExternal doesn't support more than two ValueVector(s)")
+    }
   }
 
   override def readExternal(in: ObjectInput): Unit = {
     _rddId = in.readLong()
     _slice = in.readInt()
 
+    val nVecs = in.readInt()
     val len = in.readInt()
-    val vecType = in.readObject().asInstanceOf[MinorType]
-    val allocator = new RootAllocator(Long.MaxValue)
+    val allocator = new RootAllocator(Integer.MAX_VALUE)
 
-    /* Depending on the type, the correct vector is instantiated
+    /* This double match-case construct allows all possible combinations between ValueVector types, as well as
+    * including all possible combinations between one and two vectors being used (it basically merges the
+    * previous ArrowPartition and ArrowCompositePartition 's readExternal methods together.
     *
-    * So far, only BIGINT (Long) and VARBINARY (String) vectors have been implemented here,
-    * which should define the basic working conditions for each primitive data type.
-    * In particular, BIGINT shows this solution works for any fixed-width primitive type, whereas
-    * VARBINARY does the same for variable-width primitive types */
-    vecType match {
-      case MinorType.INT =>
-        _data = new IntVector("vector", allocator)
-        _data.asInstanceOf[IntVector].allocateNew(len)
-        for (i <- 0 until len) _data.asInstanceOf[IntVector]
-          .set(i, in.readObject().asInstanceOf[Int])
-        _data.setValueCount(len)
-      case MinorType.BIGINT =>
-        _data = new BigIntVector("vector", allocator)
-        _data.asInstanceOf[BigIntVector].allocateNew(len)
-        for (i <- 0 until len) _data.asInstanceOf[BigIntVector]
-          .set(i, in.readObject().asInstanceOf[Long])
-        _data.setValueCount(len)
-      case MinorType.VARBINARY =>
-        _data = new VarBinaryVector("vector", allocator)
-        _data.asInstanceOf[VarBinaryVector].allocateNew(len)
-        for (i <- 0 until len) _data.asInstanceOf[VarBinaryVector]
-          .set(i, in.readObject().asInstanceOf[Array[Byte]])
-        _data.setValueCount(len)
-      case MinorType.STRING =>
-        _data = new StringVector("vector", allocator)
-        _data.asInstanceOf[StringVector].allocateNew(len)
-        for (i <- 0 until len) _data.asInstanceOf[StringVector]
-          .set(i, in.readObject().asInstanceOf[String])
-        _data.setValueCount(len)
-      case _ => throw new SparkException("Unsupported Arrow Vector")
+    * In this example some types have been left out. INT and BIGINT (long) prove the feasibility for fixed-width data types,
+    * whereas VARBINARY and STRING (newly added) prove it for variable-width vectors. 
+    * 
+    * Important: in case of two vectors (Tuple2 result type in transformations), the order of the vectors 
+    * is really important. So the individual case are treated separately 
+    * (i.e. (INT, STRING) != (STRING, INT) */
+    nVecs match {
+      case 1 =>
+        val minorType = in.readObject().asInstanceOf[MinorType]
+        minorType match {
+          case MinorType.INT =>
+            _data = Array[ValueVector](new IntVector("vector", allocator), new ZeroVector)
+            _data.head.asInstanceOf[IntVector].setInitialCapacity(len)
+            _data.head.asInstanceOf[IntVector].allocateNew()
+            for (i <- 0 until len) _data.head.asInstanceOf[IntVector]
+              .set(i, in.readObject().asInstanceOf[Int])
+            _data.head.setValueCount(len)
+          case MinorType.BIGINT =>
+            _data = Array[ValueVector](new BigIntVector("vector", allocator), new ZeroVector)
+            _data.head.asInstanceOf[BigIntVector].setInitialCapacity(len)
+            _data.head.asInstanceOf[BigIntVector].allocateNew()
+            for (i <- 0 until len) _data.head.asInstanceOf[BigIntVector]
+              .set(i, in.readObject().asInstanceOf[Long])
+            _data.head.setValueCount(len)
+          case MinorType.VARBINARY =>
+            _data = Array[ValueVector](new VarBinaryVector("vector", allocator), new ZeroVector)
+            _data.head.asInstanceOf[VarBinaryVector].setInitialCapacity(len)
+            _data.head.asInstanceOf[VarBinaryVector].allocateNew()
+            for (i <- 0 until len) {
+              _data.head.asInstanceOf[VarBinaryVector]
+                .setSafe(i, in.readObject().asInstanceOf[Array[Byte]])
+            }
+            _data.head.setValueCount(len)
+          case MinorType.STRING =>
+            _data = Array[ValueVector](new StringVector("vector", allocator), new ZeroVector)
+            _data.head.asInstanceOf[StringVector].setInitialCapacity(len)
+            _data.head.asInstanceOf[StringVector].allocateNew()
+            for (i <- 0 until len) _data.head.asInstanceOf[StringVector]
+              .setSafe(i, in.readObject().asInstanceOf[String])
+            _data.head.setValueCount(len)
+          case _ => throw new SparkException("Unsupported Arrow Vector (Single Vector)")
+        }
+      case 2 =>
+        val minorTypes = in.readObject().asInstanceOf[(MinorType, MinorType)]
+        minorTypes match {
+          case (MinorType.INT, MinorType.INT) =>
+            _data = Array[ValueVector](new IntVector("vector1", allocator), new IntVector("vector2", allocator))
+            _data.head.asInstanceOf[IntVector].setInitialCapacity(len)
+            _data.head.asInstanceOf[IntVector].allocateNew()
+            _data.last.asInstanceOf[IntVector].setInitialCapacity(len)
+            _data.last.asInstanceOf[IntVector].allocateNew()
+            for (i <- 0 until len){
+              _data.head.asInstanceOf[IntVector].set(i, in.readObject().asInstanceOf[Int])
+              _data.last.asInstanceOf[IntVector].set(i, in.readObject().asInstanceOf[Int])
+            }
+            _data.head.setValueCount(len)
+            _data.last.setValueCount(len)
+          case (MinorType.BIGINT, MinorType.BIGINT) =>
+            _data = Array[ValueVector](new BigIntVector("vector1", allocator), new BigIntVector("vector2", allocator))
+            _data.head.asInstanceOf[BigIntVector].setInitialCapacity(len)
+            _data.head.asInstanceOf[BigIntVector].allocateNew()
+            _data.last.asInstanceOf[BigIntVector].setInitialCapacity(len)
+            _data.last.asInstanceOf[BigIntVector].allocateNew()
+            for (i <- 0 until len){
+              _data.head.asInstanceOf[BigIntVector].set(i, in.readObject().asInstanceOf[Long])
+              _data.last.asInstanceOf[BigIntVector].set(i, in.readObject().asInstanceOf[Long])
+            }
+            _data.head.setValueCount(len)
+            _data.last.setValueCount(len)
+          case (MinorType.VARBINARY, MinorType.VARBINARY) =>
+            _data = Array[ValueVector](new VarBinaryVector("vector1", allocator), new VarBinaryVector("vector2", allocator))
+            _data.head.asInstanceOf[VarBinaryVector].setInitialCapacity(len)
+            _data.head.asInstanceOf[VarBinaryVector].allocateNew()
+            _data.last.asInstanceOf[VarBinaryVector].setInitialCapacity(len)
+            _data.last.asInstanceOf[VarBinaryVector].allocateNew()
+            for (i <- 0 until len){
+              _data.head.asInstanceOf[VarBinaryVector].setSafe(i, in.readObject().asInstanceOf[Array[Byte]])
+              _data.last.asInstanceOf[VarBinaryVector].setSafe(i, in.readObject().asInstanceOf[Array[Byte]])
+            }
+            _data.head.setValueCount(len)
+            _data.last.setValueCount(len)
+          case (MinorType.STRING, MinorType.STRING) =>
+            _data = Array[ValueVector](new StringVector("vector1", allocator), new StringVector("vector2", allocator))
+            _data.head.asInstanceOf[StringVector].setInitialCapacity(len)
+            _data.head.asInstanceOf[StringVector].allocateNew()
+            _data.last.asInstanceOf[StringVector].setInitialCapacity(len)
+            _data.last.asInstanceOf[StringVector].allocateNew()
+            for (i <- 0 until len){
+              _data.head.asInstanceOf[StringVector].setSafe(i, in.readObject().asInstanceOf[String])
+              _data.last.asInstanceOf[StringVector].setSafe(i, in.readObject().asInstanceOf[String])
+            }
+            _data.head.setValueCount(len)
+            _data.last.setValueCount(len)
+          case (MinorType.INT, MinorType.BIGINT) =>
+            _data = Array[ValueVector](new IntVector("vector1", allocator), new BigIntVector("vector2", allocator))
+            _data.head.asInstanceOf[IntVector].setInitialCapacity(len)
+            _data.head.asInstanceOf[IntVector].allocateNew()
+            _data.last.asInstanceOf[BigIntVector].setInitialCapacity(len)
+            _data.last.asInstanceOf[BigIntVector].allocateNew()
+            for (i <- 0 until len){
+              _data.head.asInstanceOf[IntVector].set(i, in.readObject().asInstanceOf[Int])
+              _data.last.asInstanceOf[BigIntVector].set(i, in.readObject().asInstanceOf[Long])
+            }
+            _data.head.setValueCount(len)
+            _data.last.setValueCount(len)
+          case (MinorType.BIGINT, MinorType.INT) =>
+            _data = Array[ValueVector](new BigIntVector("vector1", allocator), new IntVector("vector2", allocator))
+            _data.head.asInstanceOf[BigIntVector].setInitialCapacity(len)
+            _data.head.asInstanceOf[BigIntVector].allocateNew()
+            _data.last.asInstanceOf[IntVector].setInitialCapacity(len)
+            _data.last.asInstanceOf[IntVector].allocateNew()
+            for (i <- 0 until len){
+              _data.head.asInstanceOf[BigIntVector].set(i, in.readObject().asInstanceOf[Long])
+              _data.last.asInstanceOf[IntVector].set(i, in.readObject().asInstanceOf[Int])
+            }
+            _data.head.setValueCount(len)
+            _data.last.setValueCount(len)
+          case (MinorType.INT, MinorType.VARBINARY) =>
+            _data = Array[ValueVector](new IntVector("vector1", allocator), new VarBinaryVector("vector2", allocator))
+            _data.head.asInstanceOf[IntVector].setInitialCapacity(len)
+            _data.head.asInstanceOf[IntVector].allocateNew()
+            _data.last.asInstanceOf[VarBinaryVector].setInitialCapacity(len)
+            _data.last.asInstanceOf[VarBinaryVector].allocateNew()
+            for (i <- 0 until len){
+              _data.head.asInstanceOf[IntVector].set(i, in.readObject().asInstanceOf[Int])
+              _data.last.asInstanceOf[VarBinaryVector].setSafe(i, in.readObject().asInstanceOf[Array[Byte]])
+            }
+            _data.head.setValueCount(len)
+            _data.last.setValueCount(len)
+          case (MinorType.VARBINARY, MinorType.INT) =>
+            _data = Array[ValueVector](new VarBinaryVector("vector1", allocator), new IntVector("vector2", allocator))
+            _data.head.asInstanceOf[VarBinaryVector].setInitialCapacity(len)
+            _data.head.asInstanceOf[VarBinaryVector].allocateNew()
+            _data.last.asInstanceOf[IntVector].setInitialCapacity(len)
+            _data.last.asInstanceOf[IntVector].allocateNew()
+            for (i <- 0 until len){
+              _data.head.asInstanceOf[VarBinaryVector].setSafe(i, in.readObject().asInstanceOf[Array[Byte]])
+              _data.last.asInstanceOf[IntVector].set(i, in.readObject().asInstanceOf[Int])
+            }
+            _data.head.setValueCount(len)
+            _data.last.setValueCount(len)
+          case (MinorType.INT, MinorType.STRING) =>
+            _data = Array[ValueVector](new IntVector("vector1", allocator), new StringVector("vector2", allocator))
+            _data.head.asInstanceOf[IntVector].setInitialCapacity(len)
+            _data.head.asInstanceOf[IntVector].allocateNew()
+            _data.last.asInstanceOf[StringVector].setInitialCapacity(len)
+            _data.last.asInstanceOf[StringVector].allocateNew()
+            for (i <- 0 until len){
+              _data.head.asInstanceOf[IntVector].set(i, in.readObject().asInstanceOf[Int])
+              _data.last.asInstanceOf[StringVector].setSafe(i, in.readObject().asInstanceOf[String])
+            }
+            _data.head.setValueCount(len)
+            _data.last.setValueCount(len)
+          case (MinorType.STRING, MinorType.INT) =>
+            _data = Array[ValueVector](new StringVector("vector1", allocator), new IntVector("vector2", allocator))
+            _data.head.asInstanceOf[StringVector].setInitialCapacity(len)
+            _data.head.asInstanceOf[StringVector].allocateNew()
+            _data.last.asInstanceOf[IntVector].setInitialCapacity(len)
+            _data.last.asInstanceOf[IntVector].allocateNew()
+            for (i <- 0 until len){
+              _data.head.asInstanceOf[StringVector].setSafe(i, in.readObject().asInstanceOf[String])
+              _data.last.asInstanceOf[IntVector].set(i, in.readObject().asInstanceOf[Int])
+            }
+            _data.head.setValueCount(len)
+            _data.last.setValueCount(len)
+          case (MinorType.BIGINT, MinorType.VARBINARY) =>
+            _data = Array[ValueVector](new BigIntVector("vector1", allocator), new VarBinaryVector("vector2", allocator))
+            _data.head.asInstanceOf[BigIntVector].setInitialCapacity(len)
+            _data.head.asInstanceOf[BigIntVector].allocateNew()
+            _data.last.asInstanceOf[VarBinaryVector].setInitialCapacity(len)
+            _data.last.asInstanceOf[VarBinaryVector].allocateNew()
+            for (i <- 0 until len){
+              _data.head.asInstanceOf[BigIntVector].set(i, in.readObject().asInstanceOf[Long])
+              _data.last.asInstanceOf[VarBinaryVector].setSafe(i, in.readObject().asInstanceOf[Array[Byte]])
+            }
+            _data.head.setValueCount(len)
+            _data.last.setValueCount(len)
+          case (MinorType.VARBINARY, MinorType.BIGINT) =>
+            _data = Array[ValueVector](new VarBinaryVector("vector1", allocator), new BigIntVector("vector2", allocator))
+            _data.head.asInstanceOf[VarBinaryVector].setInitialCapacity(len)
+            _data.head.asInstanceOf[VarBinaryVector].allocateNew()
+            _data.last.asInstanceOf[BigIntVector].setInitialCapacity(len)
+            _data.last.asInstanceOf[BigIntVector].allocateNew()
+            for (i <- 0 until len){
+              _data.head.asInstanceOf[VarBinaryVector].setSafe(i, in.readObject().asInstanceOf[Array[Byte]])
+              _data.last.asInstanceOf[BigIntVector].set(i, in.readObject().asInstanceOf[Long])
+            }
+            _data.head.setValueCount(len)
+            _data.last.setValueCount(len)
+          case (MinorType.BIGINT, MinorType.STRING) =>
+            _data = Array[ValueVector](new BigIntVector("vector1", allocator), new StringVector("vector2", allocator))
+            _data.head.asInstanceOf[BigIntVector].setInitialCapacity(len)
+            _data.head.asInstanceOf[BigIntVector].allocateNew()
+            _data.last.asInstanceOf[StringVector].setInitialCapacity(len)
+            _data.last.asInstanceOf[StringVector].allocateNew()
+            for (i <- 0 until len){
+              _data.head.asInstanceOf[BigIntVector].set(i, in.readObject().asInstanceOf[Long])
+              _data.last.asInstanceOf[StringVector].setSafe(i, in.readObject().asInstanceOf[String])
+            }
+            _data.head.setValueCount(len)
+            _data.last.setValueCount(len)
+          case (MinorType.STRING, MinorType.BIGINT) =>
+            _data = Array[ValueVector](new StringVector("vector1", allocator), new BigIntVector("vector2", allocator))
+            _data.head.asInstanceOf[StringVector].setInitialCapacity(len)
+            _data.head.asInstanceOf[StringVector].allocateNew()
+            _data.last.asInstanceOf[BigIntVector].setInitialCapacity(len)
+            _data.last.asInstanceOf[BigIntVector].allocateNew()
+            for (i <- 0 until len){
+              _data.head.asInstanceOf[StringVector].setSafe(i, in.readObject().asInstanceOf[String])
+              _data.last.asInstanceOf[BigIntVector].set(i, in.readObject().asInstanceOf[Long])
+            }
+            _data.head.setValueCount(len)
+            _data.last.setValueCount(len)
+        }
+      case _ => throw new SparkException("Wrong number of vectors for readExternal method")
     }
+  }
+
+  def transformValues[U: ClassTag, T: ClassTag](f : T => U)(implicit tag: TypeTag[T], tag2 : TypeTag[U]) : ArrowPartition = {
+    require(tag == tag2, "Otherwise it doesn't work")
+
+    val ctag = classTag[T]
+    for (i <- 0 until _data.head.getValueCount){
+      if (ctag.equals(classTag[String]) || ctag.equals(classTag[java.lang.String])){
+        _data.head.asInstanceOf[StringVector]
+          .set(i, f.apply(_data.head.asInstanceOf[StringVector].get(i).asInstanceOf[T]).asInstanceOf[String])
+      }
+      else if (ctag.equals(classTag[Int])){
+        _data.head.asInstanceOf[IntVector]
+          .set(i, f.apply(_data.head.asInstanceOf[IntVector].get(i).asInstanceOf[T]).asInstanceOf[Int])
+      }
+      else if (ctag.equals(classTag[Long])){
+        _data.head.asInstanceOf[BigIntVector]
+          .set(i, f.apply(_data.head.asInstanceOf[BigIntVector].get(i).asInstanceOf[T]).asInstanceOf[Long])
+      }
+      else throw new SparkException("No Vector value conversion for classTag %s".format(ctag))
+    }
+
+    new ArrowPartition(_rddId, _slice, _data)
   }
 
   def convert[U: ClassTag, T: ClassTag](f: T => U)
                                        (implicit tag: TypeTag[U], tag2: TypeTag[T]) : ArrowPartition = {
     var vecRes : ValueVector = new ZeroVector
-    val count = _data.getValueCount
-    val ctag = classTag[U]
+    /* As said above, the two vectors are required to be the same length */
+    val count = _data.head.getValueCount
+    val allocator = new RootAllocator(Integer.MAX_VALUE)
+    val ctagU = classTag[U]
 
-    val allocator = new RootAllocator(Long.MaxValue)
-//    println("VECTOR CONVERSION STARTED: "+_data.getMinorType)
-//    val tpe = tag.tpe.typeArgs.last
+    if (_data.last.isInstanceOf[ZeroVector]){
+      if (ctagU.equals(classTag[(_,_)])){
+        val tpe = tag.tpe.typeArgs.last
+        tpe match {
+          case t if t =:= typeOf[Int] =>
+            vecRes = new IntVector("vector", allocator)
+            vecRes.asInstanceOf[IntVector].setInitialCapacity(count)
+            vecRes.asInstanceOf[IntVector].allocateNew()
+            for (i <- 0 until count){
+              vecRes.asInstanceOf[IntVector]
+                .set(i, f.apply(_data.head.getObject(i).asInstanceOf[T]).asInstanceOf[(T,U)]._2.asInstanceOf[Int])
 
-    if (ctag.equals(classTag[java.lang.String])){
-      vecRes = new StringVector("vector", allocator)
-      vecRes.asInstanceOf[StringVector].allocateNew(count)
-      for (i <- 0 until count){
-        vecRes.asInstanceOf[StringVector]
-          .set(i, f.apply(_data.getObject(i).asInstanceOf[T]).asInstanceOf[String])
+            }
+            vecRes.setValueCount(count)
+          case t if t =:= typeOf[Long] =>
+            vecRes = new  BigIntVector("vector", allocator)
+            vecRes.asInstanceOf[BigIntVector].setInitialCapacity(count)
+            vecRes.asInstanceOf[BigIntVector].allocateNew()
+            for (i <- 0 until count){
+              vecRes.asInstanceOf[BigIntVector]
+                .set(i, f.apply(_data.head.getObject(i).asInstanceOf[T]).asInstanceOf[(T,U)]._2.asInstanceOf[Long])
+            }
+            vecRes.setValueCount(count)
+          case t if t =:= typeOf[String] | t =:= typeOf[java.lang.String] =>
+            vecRes = new StringVector("vector", allocator)
+            vecRes.asInstanceOf[StringVector].setInitialCapacity(count)
+            vecRes.asInstanceOf[StringVector].allocateNew()
+            for (i <- 0 until count){
+              vecRes.asInstanceOf[StringVector]
+                .setSafe(i, f.apply(_data.head.getObject(i).asInstanceOf[T]).asInstanceOf[(T,U)]._2.asInstanceOf[String])
+            }
+            vecRes.setValueCount(count)
+          case t if t =:= typeOf[Array[Byte]] =>
+            vecRes = new VarBinaryVector("vector", allocator)
+            vecRes.asInstanceOf[VarBinaryVector].setInitialCapacity(count)
+            vecRes.asInstanceOf[VarBinaryVector].allocateNew()
+            for (i <- 0 until count){
+              vecRes.asInstanceOf[VarBinaryVector]
+                .setSafe(i, f.apply(_data.head.getObject(i).asInstanceOf[T]).asInstanceOf[(T,U)]._2.asInstanceOf[Array[Byte]])
+            }
+            vecRes.setValueCount(count)
+          case _ => throw new SparkException("Conversion between types %s and %s (in Tuple2[%s,%s] is not possible in Arrow-Spark"
+            .format(tag2, tag, tag.tpe.typeArgs.head, tpe))
+        }
+
+        new ArrowPartition(_rddId, _slice, Array[ValueVector](_data.head, vecRes))
       }
-      vecRes.setValueCount(count)
-      _data.close()
-//      _data = new StringVector("vector", allocator)
-//      _data.asInstanceOf[StringVector].allocateNew(count)
-//      for (i <- 0 until count){
-//        _data.asInstanceOf[StringVector].set(i, vecRes.getObject(i).asInstanceOf[String])
-//      }
-//      _data.setValueCount(count)
-//      vecRes.clear()
-    }
-    else if (ctag.equals(classTag[Long])){
-      vecRes = new BigIntVector("vector", allocator)
-      vecRes.asInstanceOf[BigIntVector].allocateNew(count)
-      for (i <- 0 until count){
-        vecRes.asInstanceOf[BigIntVector]
-          .set(i, f.apply(_data.getObject(i).asInstanceOf[T]).asInstanceOf[Long])
+      else {
+        typeOf[U] match {
+          case t if t =:= typeOf[Int] =>
+            vecRes = new IntVector("vector", allocator)
+            vecRes.asInstanceOf[IntVector].setInitialCapacity(count)
+            vecRes.asInstanceOf[IntVector].allocateNew()
+            for (i <- 0 until count){
+              vecRes.asInstanceOf[IntVector]
+                .set(i, f.apply(_data.head.getObject(i).asInstanceOf[T]).asInstanceOf[Int])
+            }
+            vecRes.setValueCount(count)
+//            _data.head.close()
+          case t if t =:= typeOf[Long] =>
+            vecRes = new  BigIntVector("vector", allocator)
+            vecRes.asInstanceOf[BigIntVector].setInitialCapacity(count)
+            vecRes.asInstanceOf[BigIntVector].allocateNew()
+            for (i <- 0 until count){
+              vecRes.asInstanceOf[BigIntVector]
+                .set(i, f.apply(_data.head.getObject(i).asInstanceOf[T]).asInstanceOf[Long])
+            }
+            vecRes.setValueCount(count)
+//            _data.head.close()
+          case t if t =:= typeOf[String] | t =:= typeOf[java.lang.String] =>
+            vecRes = new StringVector("vector", allocator)
+            vecRes.asInstanceOf[StringVector].setInitialCapacity(count)
+            vecRes.asInstanceOf[StringVector].allocateNew()
+            for (i <- 0 until count){
+              vecRes.asInstanceOf[StringVector]
+                .setSafe(i, f.apply(_data.head.getObject(i).asInstanceOf[T]).asInstanceOf[String])
+            }
+            vecRes.setValueCount(count)
+//            _data.head.close()
+          case t if t =:= typeOf[Array[Byte]] =>
+            vecRes = new VarBinaryVector("vector", allocator)
+            vecRes.asInstanceOf[VarBinaryVector].setInitialCapacity(count)
+            vecRes.asInstanceOf[VarBinaryVector].allocateNew()
+            for (i <- 0 until count){
+              vecRes.asInstanceOf[VarBinaryVector]
+                .setSafe(i, f.apply(_data.head.getObject(i).asInstanceOf[T]).asInstanceOf[Array[Byte]])
+            }
+            vecRes.setValueCount(count)
+//            _data.head.close()
+          case _ => throw new SparkException("Conversion between types %s and %s is not possible in Arrow-Spark"
+          .format(tag2, tag))
+        }
+
+        new ArrowPartition(_rddId, _slice, Array[ValueVector](vecRes, _data.last))
       }
-      vecRes.setValueCount(count)
-      _data.close()
-
-//      _data = new BigIntVector("vector", allocator)
-//      _data.asInstanceOf[BigIntVector].allocateNew(count)
-//      for (i <- 0 until count){
-//        _data.asInstanceOf[BigIntVector].set(i, vecRes.getObject(i).asInstanceOf[Long])
-//      }
-//      _data.setValueCount(count)
-//      vecRes.clear()
     }
-    else if (ctag.equals(classTag[Int])){
-      vecRes = new IntVector("vector", allocator)
-      vecRes.asInstanceOf[IntVector].allocateNew(count)
-      for (i <- 0 until count){
-                vecRes.asInstanceOf[IntVector]
-                  .set(i, f.apply(_data.getObject(i).asInstanceOf[T]).asInstanceOf[Int])
-      }
-      vecRes.setValueCount(count)
-      _data.close()
-
-//      _data = new IntVector("vector", allocator)
-//      _data.asInstanceOf[IntVector].allocateNew(count)
-//      for (i <- 0 until count){
-//        _data.asInstanceOf[IntVector].set(i, vecRes.getObject(i).asInstanceOf[Int])
-//      }
-//      _data.setValueCount(count)
-//      vecRes.clear()
+    else {
+      throw new SparkException("NOT YET IMPLEMENTED...")
     }
-    else throw new SparkException("Unsupported one-to-one conversion between types %s and %s"
-      .format(tag2, tag))
-
-//    println("VECTOR CONVERSION FINISHED: "+_data.getMinorType)
-//    println("VECTOR CONVERSION FINISHED: "+vecRes.getMinorType)
-    new ArrowPartition(_rddId, _slice, vecRes)
   }
 
-  def convertToComposite[U: ClassTag, T: ClassTag](f: T => U)
-                                                  (implicit tag: TypeTag[U], tag2: TypeTag[T]) : ArrowCompositePartition = {
-    ???
+  def min() : Int = {
+    if (_data.head.isInstanceOf[IntVector] || _data.last.isInstanceOf[IntVector]){
+      val min1 = _data.head.asInstanceOf[IntVector].getMin
+      if (_data.last.isInstanceOf[ZeroVector]) min1
+      else {
+        val min2 = _data.last.asInstanceOf[IntVector].getMin
+        if (min1 < min2) min1
+        else min2
+      }
+    }
+    else throw new SparkException("Function min() not yet implemented for this data type")
   }
 }

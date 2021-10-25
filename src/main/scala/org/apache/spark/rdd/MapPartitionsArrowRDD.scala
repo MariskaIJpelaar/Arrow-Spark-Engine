@@ -27,18 +27,15 @@ private[spark] class MapPartitionsArrowRDD[U: ClassTag, T: ClassTag]
   }
 
   override def getPartitions : Array[Partition] = {
-    par.partitions.map(x => x.asInstanceOf[ArrowPartition].convert[U,T](f))
+    if (tag == tag2) par.partitions.map(x => x.asInstanceOf[ArrowPartition].transformValues[U,T](f))
+    else par.partitions.map(x => x.asInstanceOf[ArrowPartition].convert[U,T](f))
+//    par.partitions.map(x => x.asInstanceOf[ArrowPartition].convert[U,T](f))
   }
 
   override def compute(split: Partition, context: TaskContext): Iterator[U] = {
-    if (tag.equals(tag2)){
-      // do something to convert function f: T => U to f: (TaskContext, Int, Iterator[T]) => Iterator[U]
-    }
-
     /* In case of Tuple2 as result, create new ArrowCompositePartition, otherwise keep an ArrowPartition */
     if (classTag[U].equals(classTag[(_,_)])){
-      split.asInstanceOf[ArrowPartition].convertToComposite[U,T](f)
-      split.asInstanceOf[ArrowPartition].iterator[U]
+      split.asInstanceOf[ArrowPartition].iterator2[T,U].asInstanceOf[Iterator[U]]
     }
     else {
       split.asInstanceOf[ArrowPartition].iterator[U]

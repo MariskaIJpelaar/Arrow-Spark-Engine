@@ -44,7 +44,7 @@ private [spark] class ArrowRDD[T: ClassTag](@transient sc: SparkContext,
   override def compute(split: Partition, context: TaskContext): Iterator[T] = {
     _len match {
       case 1 => new InterruptibleIterator(context, split.asInstanceOf[ArrowPartition].iterator.asInstanceOf[Iterator[T]])
-      case 2 => new InterruptibleIterator(context, split.asInstanceOf[ArrowCompositePartition].iterator.asInstanceOf[Iterator[T]])
+      case 2 => new InterruptibleIterator(context, split.asInstanceOf[ArrowPartition].iterator2.asInstanceOf[Iterator[T]])
       case _ => throw new SparkException("Required maximum two ValueVector as parameter")
     }
   }
@@ -55,13 +55,13 @@ private [spark] class ArrowRDD[T: ClassTag](@transient sc: SparkContext,
         val slices = ArrowRDD.slice[T](data.head, numSlices) //only one element is in there, so it's also the first
         slices.indices.map(i => new ArrowPartition(id, i, slices(i))).toArray
       case 2 =>
-        val tupleSliced = ArrowRDD.sliceAndTuplify[T](data, numSlices)
-        tupleSliced.indices.map(i => new ArrowCompositePartition(id, i, tupleSliced(i))).toArray
+        val vectorizedSlices = ArrowRDD.sliceAndVectorize[T](data, numSlices)
+        vectorizedSlices.indices.map(i => new ArrowPartition(id, i, vectorizedSlices(i))).toArray
       case _ => throw new SparkException("Required maximum two ValueVector as parameter")
     }
   }
 
-  override def getPreferredLocations(s: Partition): Seq[String] = {
+  override protected def getPreferredLocations(s: Partition): Seq[String] = {
     locationPrefs.getOrElse(s.index, Nil)
   }
 
@@ -77,12 +77,17 @@ private [spark] class ArrowRDD[T: ClassTag](@transient sc: SparkContext,
     val cleanF = sc.clean(f)
     new MapPartitionsArrowRDD[U, T](this, cleanF)
   }
+
+  def vectorMin() : Int = {
+    val parts = this.getPartitions.iterator.map(x => x.asInstanceOf[ArrowPartition].min())
+    parts.min
+  }
 }
 
 private object ArrowRDD {
 
-   implicit def rddToPairRDDFunctions[K, V](rdd: ArrowRDD[(K, V)])
-                                          (implicit kt: ClassTag[K], vt: ClassTag[V], ord: Ordering[K] = null): PairRDDFunctions[K, V] = {
+   implicit def rddToPairRDDFunctions[K : ClassTag, V : ClassTag](rdd: ArrowRDD[(K, V)])
+                                          (implicit kt: TypeTag[K], vt: TypeTag[V], ord: Ordering[K] = null): PairRDDFunctions[K, V] = {
     new PairRDDFunctions(rdd)
   }
 
@@ -118,8 +123,8 @@ private object ArrowRDD {
 
   /* Same as slice() above, but used with two vectors as input. This method uses zero-copy split of the vectors
   * and creates a Tuple2 with the slices, which will then be used to create an ArrowCompositePartition */
-  def sliceAndTuplify[T: ClassTag](vectors: Array[ValueVector],
-                                   numSlices: Int) : Seq[(ValueVector, ValueVector)] = {
+  def sliceAndVectorize[T: ClassTag](vectors: Array[ValueVector],
+                                   numSlices: Int) : Seq[Array[ValueVector]] = {
     if (numSlices < 1) throw new IllegalArgumentException("Positive number of partitions required")
 
     require(vectors(0).getValueCount == vectors(1).getValueCount, "Vectors need to be the same size")
@@ -145,7 +150,7 @@ private object ArrowRDD {
         tp1.splitAndTransfer(start, end-start)
         tp2.splitAndTransfer(start, end-start)
 
-        (tp1.getTo, tp2.getTo)
+        Array[ValueVector](tp1.getTo, tp2.getTo)
       }
     }.toSeq
   }

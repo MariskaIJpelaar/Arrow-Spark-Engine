@@ -131,7 +131,8 @@ private[spark] class TorrentBroadcast[T: ClassTag](obj: T, id: Long)
     // do not create a duplicate copy of the broadcast variable's value.
     val blockManager = SparkEnv.get.blockManager
     // change 5.08 enabled off_heap (lines 135 + 150)
-    if (!blockManager.putSingle(broadcastId, value, MEMORY_AND_DISK, tellMaster = false)) {
+//    if (!blockManager.putSingle(broadcastId, value, MEMORY_AND_DISK, tellMaster = false)) {
+      if (!blockManager.putSingle(broadcastId, value, OFF_HEAP, tellMaster = false)) {
       throw new SparkException(s"Failed to store $broadcastId in BlockManager")
     }
     try {
@@ -146,7 +147,8 @@ private[spark] class TorrentBroadcast[T: ClassTag](obj: T, id: Long)
         }
         val pieceId = BroadcastBlockId(id, "piece" + i)
         val bytes = new ChunkedByteBuffer(block.duplicate())
-        if (!blockManager.putBytes(pieceId, bytes, MEMORY_AND_DISK_SER, tellMaster = true)) {
+//        if (!blockManager.putBytes(pieceId, bytes, MEMORY_AND_DISK_SER, tellMaster = true)) {
+        if (!blockManager.putBytes(pieceId, bytes, OFF_HEAP, tellMaster = true)) {
           throw new SparkException(s"Failed to store $pieceId of $broadcastId " +
             s"in local BlockManager")
         }
