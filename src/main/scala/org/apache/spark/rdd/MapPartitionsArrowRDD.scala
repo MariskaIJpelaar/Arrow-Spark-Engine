@@ -1,9 +1,8 @@
 package org.apache.spark.rdd
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.{Partition, Partitioner, SparkException, TaskContext}
+import org.apache.spark.{Partition, TaskContext}
 
-import scala.collection.mutable.ArrayBuffer
 import scala.reflect.{ClassTag, classTag}
 import scala.reflect.runtime.universe._
 

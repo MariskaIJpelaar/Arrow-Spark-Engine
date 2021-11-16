@@ -1,12 +1,12 @@
 package org.apache.spark.rdd
 
-import org.apache.arrow.memory.RootAllocator
 import org.apache.arrow.vector._
 import org.apache.spark._
 import org.apache.spark.internal.Logging
 
-import scala.reflect.{ClassTag, classTag}
+import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
+import scala.language.implicitConversions
 
 /**
  * An Arrow-backed RDD using ValueVector as data input.
@@ -36,10 +36,10 @@ private [spark] class ArrowRDD[T: ClassTag](@transient sc: SparkContext,
                                                     (implicit tag: TypeTag[T])
                                                     extends RDD[T](sc, Nil) with Logging {
 
-
   /* As said earlier, more vectors haven't been implemented as input for this RDD */
   private val _len = data.length
   require(_len <= 2, "Required maximum two ValueVector as parameter")
+
 
   override def compute(split: Partition, context: TaskContext): Iterator[T] = {
     _len match {
@@ -90,7 +90,12 @@ private object ArrowRDD {
                                           (implicit kt: TypeTag[K], vt: TypeTag[V], ord: Ordering[K] = null): PairRDDFunctions[K, V] = {
     new PairRDDFunctions(rdd)
   }
-  
+
+  implicit def rddToOrderedRDDFunctions[K : Ordering : ClassTag, V: ClassTag](rdd: ArrowRDD[(K, V)])
+                                                                             (implicit kt: TypeTag[K], vt: TypeTag[V]) : OrderedRDDFunctions[K, V, (K, V)] = {
+    new OrderedRDDFunctions[K, V, (K, V)](rdd)
+  }
+
   def slice[T: ClassTag](vec: ValueVector,
                          numSlices: Int): Seq[ValueVector] = {
 

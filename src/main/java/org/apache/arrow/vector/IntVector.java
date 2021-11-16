@@ -19,7 +19,8 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
-import edu.emory.mathcs.backport.java.util.Collections;
+import org.apache.arrow.algorithm.sort.DefaultVectorComparators;
+import org.apache.arrow.algorithm.sort.FixedWidthInPlaceVectorSorter;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.IntReaderImpl;
@@ -30,10 +31,6 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-
-import java.util.ArrayList;
-import java.util.Collection;
-
 /**
  * IntVector implements a fixed width (4 bytes) vector of
  * integer values which could be null. A validity buffer (bit vector) is
@@ -285,12 +282,14 @@ public final class IntVector extends BaseFixedWidthVector implements BaseIntVect
     return buffer.getInt((long) index * TYPE_WIDTH);
   }
 
-  public int getMin()
-  {
-    ArrayList<Integer> vectorData = new ArrayList<>();
-    for (int i=0; i<this.valueCount; i++) vectorData.add(i, this.get(i));
-    return (int) Collections.min(vectorData);
+  public int getMin() {
+    DefaultVectorComparators.IntComparator comp = new DefaultVectorComparators.IntComparator();
+    FixedWidthInPlaceVectorSorter sorter = new FixedWidthInPlaceVectorSorter();
+
+    sorter.sortInPlace(this, comp);
+    return this.get(0);
   }
+
 
   /*----------------------------------------------------------------*
    |                                                                |
