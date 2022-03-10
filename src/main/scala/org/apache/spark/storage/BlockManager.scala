@@ -1175,7 +1175,9 @@ private[spark] class BlockManager(
       blockId: BlockId,
       localDirs: Array[String],
       blockSize: Long): Option[ManagedBuffer] = {
-    val file = ExecutorDiskUtils.getFile(localDirs, subDirsPerLocalDir, blockId.name)
+    // note: used to be ExecutorDiskUtils.getFile(localDirs, subDirsPerLocalDir, blockId.name)
+    // which did not compile
+    val file = new File(ExecutorDiskUtils.getFilePath(localDirs, subDirsPerLocalDir, blockId.name))
     if (file.exists()) {
       val managedBuffer = securityManager.getIOEncryptionKey() match {
         case Some(key) =>
