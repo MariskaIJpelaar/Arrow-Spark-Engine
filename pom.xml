@@ -5,50 +5,53 @@
   <version>1.0-SNAPSHOT</version>
   <inceptionYear>2008</inceptionYear>
   <properties>
-    <scala.version>2.12.4</scala.version>
+    <scala.version>2.12.10</scala.version>
+    <arrow.version>6.0.0</arrow.version>
+    <parquet.version>1.12.2</parquet.version>
+    <maven.compiler.source>1.8</maven.compiler.source>
+    <maven.compiler.target>1.8</maven.compiler.target>
   </properties>
 
-  <pluginRepositories>
-    <pluginRepository>
-      <id>scala-tools.org</id>
-      <name>Scala-Tools Maven2 Repository</name>
-      <url>http://scala-tools.org/repo-releases</url>
-    </pluginRepository>
-  </pluginRepositories>
-
   <dependencies>
-    <dependency>
-      <groupId>org.scala-lang</groupId>
-      <artifactId>scala-library</artifactId>
-      <version>${scala.version}</version>
-    </dependency>
+    <!--      Scala    -->
+<!--    <dependency>-->
+<!--      <groupId>org.scala-lang</groupId>-->
+<!--      <artifactId>scala-library</artifactId>-->
+<!--      <version>${scala.version}</version>-->
+<!--    </dependency>-->
+    <!--  Required  -->
     <dependency>
       <groupId>org.scala-lang</groupId>
       <artifactId>scala-reflect</artifactId>
       <version>${scala.version}</version>
     </dependency>
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.4</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.specs</groupId>
-      <artifactId>specs</artifactId>
-      <version>1.4.3</version>
-      <scope>test</scope>
-    </dependency>
+    <!--      Junit   -->
+<!--    <dependency>-->
+<!--      <groupId>junit</groupId>-->
+<!--      <artifactId>junit</artifactId>-->
+<!--      <version>4.4</version>-->
+<!--      <scope>test</scope>-->
+<!--    </dependency>-->
+    <!--    Specs   -->
+<!--    <dependency>-->
+<!--      <groupId>org.specs</groupId>-->
+<!--      <artifactId>specs</artifactId>-->
+<!--      <version>1.4.3</version>-->
+<!--      <scope>test</scope>-->
+<!--    </dependency>-->
+    <!--    ClearSpring Analytics: Required -->
     <dependency>
       <groupId>com.clearspring.analytics</groupId>
       <artifactId>stream</artifactId>
       <version>2.9.8</version>
     </dependency>
+    <!--    DropWizard Metrics: Required -->
     <dependency>
       <groupId>io.dropwizard.metrics</groupId>
       <artifactId>metrics-core</artifactId>
       <version>4.2.8</version>
     </dependency>
+    <!--   Apache Hadoop: Both Required   -->
     <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-common</artifactId>
@@ -60,6 +63,7 @@
       <artifactId>hadoop-mapreduce-client-core</artifactId>
       <version>3.3.1</version>
     </dependency>
+    <!--    Apache Spark: Required    -->
     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-core_2.12</artifactId>
@@ -90,121 +94,124 @@
       <version>3.3.0-SNAPSHOT</version>
       <scope>compile</scope>
     </dependency>
-    <dependency>
-      <groupId>org.apache.arrow</groupId>
-      <artifactId>arrow-vector</artifactId>
-      <version>6.0.0</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.arrow</groupId>
-      <artifactId>arrow-memory</artifactId>
-      <version>6.0.0</version>
-      <type>pom</type>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.arrow</groupId>
-      <artifactId>arrow-memory-unsafe</artifactId>
-      <version>6.0.0</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.arrow</groupId>
-      <artifactId>arrow-memory-netty</artifactId>
-      <version>6.0.0</version>
-    </dependency>
+    <!--    Apache Arrow    -->
+<!--    <dependency>-->
+<!--      <groupId>org.apache.arrow</groupId>-->
+<!--      <artifactId>arrow-vector</artifactId>-->
+<!--      <version>6.0.0</version>-->
+<!--    </dependency>-->
+<!--    <dependency>-->
+<!--      <groupId>org.apache.arrow</groupId>-->
+<!--      <artifactId>arrow-memory</artifactId>-->
+<!--      <version>6.0.0</version>-->
+<!--      <type>pom</type>-->
+<!--    </dependency>-->
+<!--    <dependency>-->
+<!--      <groupId>org.apache.arrow</groupId>-->
+<!--      <artifactId>arrow-memory-unsafe</artifactId>-->
+<!--      <version>6.0.0</version>-->
+<!--    </dependency>-->
+<!--    <dependency>-->
+<!--      <groupId>org.apache.arrow</groupId>-->
+<!--      <artifactId>arrow-memory-netty</artifactId>-->
+<!--      <version>6.0.0</version>-->
+<!--    </dependency>-->
+    <!--    Required -->
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-algorithm</artifactId>
       <version>6.0.0</version>
     </dependency>
-    <dependency>
-      <groupId>org.apache.parquet</groupId>
-      <artifactId>parquet-common</artifactId>
-      <version>1.12.2</version>
-    </dependency>
+    <!--    Apache Parquet  -->
+<!--    <dependency>-->
+<!--      <groupId>org.apache.parquet</groupId>-->
+<!--      <artifactId>parquet-common</artifactId>-->
+<!--      <version>1.12.2</version>-->
+<!--    </dependency>-->
+    <!--    Required  -->
     <dependency>
       <groupId>org.apache.parquet</groupId>
       <artifactId>parquet-arrow</artifactId>
       <version>1.12.2</version>
     </dependency>
-    <dependency>
-      <groupId>org.apache.parquet</groupId>
-      <artifactId>parquet-column</artifactId>
-      <version>1.12.2</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.parquet</groupId>
-      <artifactId>parquet-jackson</artifactId>
-      <version>1.12.2</version>
-    </dependency>
+<!--    <dependency>-->
+<!--      <groupId>org.apache.parquet</groupId>-->
+<!--      <artifactId>parquet-column</artifactId>-->
+<!--      <version>1.12.2</version>-->
+<!--    </dependency>-->
+<!--    <dependency>-->
+<!--      <groupId>org.apache.parquet</groupId>-->
+<!--      <artifactId>parquet-jackson</artifactId>-->
+<!--      <version>1.12.2</version>-->
+<!--    </dependency>-->
+    <!--    Required  -->
     <dependency>
       <groupId>org.apache.parquet</groupId>
       <artifactId>parquet-hadoop</artifactId>
       <version>1.12.1</version>
     </dependency>
-    <dependency>
-      <groupId>com.fasterxml.jackson.core</groupId>
-      <artifactId>jackson-core</artifactId>
-      <version>2.10.0</version>
-    </dependency>
-    <dependency>
-      <groupId>com.fasterxml.jackson.core</groupId>
-      <artifactId>jackson-databind</artifactId>
-      <version>2.10.0</version>
-    </dependency>
-    <dependency>
-      <groupId>com.fasterxml.jackson.core</groupId>
-      <artifactId>jackson-annotations</artifactId>
-      <version>2.10.0</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.maven.plugins</groupId>
-      <artifactId>maven-eclipse-plugin</artifactId>
-      <version>2.10</version>
-    </dependency>
+    <!--    FasterXML Jackson Core -->
+<!--    <dependency>-->
+<!--      <groupId>com.fasterxml.jackson.core</groupId>-->
+<!--      <artifactId>jackson-core</artifactId>-->
+<!--      <version>2.10.0</version>-->
+<!--    </dependency>-->
+<!--    <dependency>-->
+<!--      <groupId>com.fasterxml.jackson.core</groupId>-->
+<!--      <artifactId>jackson-databind</artifactId>-->
+<!--      <version>2.10.0</version>-->
+<!--    </dependency>-->
+<!--    <dependency>-->
+<!--      <groupId>com.fasterxml.jackson.core</groupId>-->
+<!--      <artifactId>jackson-annotations</artifactId>-->
+<!--      <version>2.10.0</version>-->
+<!--    </dependency>-->
+<!--    <dependency>-->
+<!--      <groupId>org.apache.maven.plugins</groupId>-->
+<!--      <artifactId>maven-eclipse-plugin</artifactId>-->
+<!--      <version>2.10</version>-->
+<!--    </dependency>-->
   </dependencies>
 
+  <!--  https://stackoverflow.com/questions/24448582/my-mixed-scala-java-maven-project-doesnt-compile-->
   <build>
     <plugins>
       <plugin>
-        <groupId>net.alchim31.maven</groupId>
-        <artifactId>scala-maven-plugin</artifactId>
-        <version>4.4.0</version>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <configuration>
+          <descriptorRefs>
+            <descriptorRef>jar-with-dependencies</descriptorRef>
+          </descriptorRefs>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.scala-tools</groupId>
+        <artifactId>maven-scala-plugin</artifactId>
+        <version>2.15.2</version>
         <executions>
           <execution>
+            <id>compile</id>
             <goals>
               <goal>compile</goal>
+            </goals>
+            <phase>compile</phase>
+          </execution>
+          <execution>
+            <id>test-compile</id>
+            <goals>
               <goal>testCompile</goal>
+            </goals>
+            <phase>test-compile</phase>
+          </execution>
+          <execution>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>compile</goal>
             </goals>
           </execution>
         </executions>
-        <configuration>
-          <scalaVersion>${scala.version}</scalaVersion>
-          <args>
-            <arg>-target:jvm-1.8</arg>
-          </args>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.1</version>
-        <configuration>
-          <source>8</source>
-          <target>8</target>
-        </configuration>
       </plugin>
     </plugins>
   </build>
-  <reporting>
-    <plugins>
-      <plugin>
-        <groupId>net.alchim31.maven</groupId>
-        <artifactId>scala-maven-plugin</artifactId>
-        <version>4.4.0</version>
-        <configuration>
-          <scalaVersion>${scala.version}</scalaVersion>
-        </configuration>
-      </plugin>
-    </plugins>
-  </reporting>
 </project>
+

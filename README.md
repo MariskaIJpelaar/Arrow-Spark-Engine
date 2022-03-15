@@ -30,10 +30,16 @@ For example:
 mvn install:install-file -Dfile=spark/core/target/spark-core_2.12-3.3.0-SNAPSHOT.jar -DgroupId=org.apache.spark -DartifactId=spark-core_2.12 -Dversion=3.3.0-SNAPSHOT -Dpackaging=jar -DgeneratePom=true
 ```
 The jars you need are:
-`spark/core/target/spark-core_2.12-3.3.0-SNAPSHOT.jar`
-`spark/common/network-common/target/spark-network-common_2.12-3.3.0-SNAPSHOT.jar`
-`spark/common/network-shuffle/target/spark-network-shuffle_2.12-3.3.0-SNAPSHOT.jar`
-`spark/common/tags/target/spark-tags_2.12-3.3.0-SNAPSHOT.jar`
-`spark/common/unsafe/target/spark-unsafe_2.12-3.3.0-SNAPSHOT.jar`
+- `spark/core/target/spark-core_2.12-3.3.0-SNAPSHOT.jar`
+- `spark/common/network-common/target/spark-network-common_2.12-3.3.0-SNAPSHOT.jar`
+- `spark/common/network-shuffle/target/spark-network-shuffle_2.12-3.3.0-SNAPSHOT.jar`
+- `spark/common/tags/target/spark-tags_2.12-3.3.0-SNAPSHOT.jar`
+- `spark/common/unsafe/target/spark-unsafe_2.12-3.3.0-SNAPSHOT.jar`
 
 ## Usage
+Build the project with 
+```bash
+mvn clean compile assembly:single
+```
+and use the jar as you will. You can find the jar in `target`
+>Note: the jar includes all dependencies
