@@ -12,6 +12,14 @@
     <maven.compiler.target>1.8</maven.compiler.target>
   </properties>
 
+  <repositories>
+    <repository>
+      <id>spark-SNAPSHOTS</id>
+      <name>remote spark repository for snapshots</name>
+      <url>https://repository.apache.org/snapshots</url>
+    </repository>
+  </repositories>
+
   <dependencies>
     <!--      Scala    -->
 <!--    <dependency>-->
@@ -39,30 +47,30 @@
 <!--      <version>1.4.3</version>-->
 <!--      <scope>test</scope>-->
 <!--    </dependency>-->
-    <!--    ClearSpring Analytics: Required -->
-    <dependency>
-      <groupId>com.clearspring.analytics</groupId>
-      <artifactId>stream</artifactId>
-      <version>2.9.8</version>
-    </dependency>
+    <!--    ClearSpring Analytics -->
+<!--    <dependency>-->
+<!--      <groupId>com.clearspring.analytics</groupId>-->
+<!--      <artifactId>stream</artifactId>-->
+<!--      <version>2.9.8</version>-->
+<!--    </dependency>-->
     <!--    DropWizard Metrics: Required -->
-    <dependency>
-      <groupId>io.dropwizard.metrics</groupId>
-      <artifactId>metrics-core</artifactId>
-      <version>4.2.8</version>
-    </dependency>
+<!--    <dependency>-->
+<!--      <groupId>io.dropwizard.metrics</groupId>-->
+<!--      <artifactId>metrics-core</artifactId>-->
+<!--      <version>4.2.8</version>-->
+<!--    </dependency>-->
     <!--   Apache Hadoop: Both Required   -->
-    <dependency>
-      <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-common</artifactId>
-      <version>3.3.1</version>
-    </dependency>
-    <dependency>
-      <!-- Found with: https://jar-download.com -->
-      <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-mapreduce-client-core</artifactId>
-      <version>3.3.1</version>
-    </dependency>
+<!--    <dependency>-->
+<!--      <groupId>org.apache.hadoop</groupId>-->
+<!--      <artifactId>hadoop-common</artifactId>-->
+<!--      <version>3.3.1</version>-->
+<!--    </dependency>-->
+<!--    <dependency>-->
+<!--      &lt;!&ndash; Found with: https://jar-download.com &ndash;&gt;-->
+<!--      <groupId>org.apache.hadoop</groupId>-->
+<!--      <artifactId>hadoop-mapreduce-client-core</artifactId>-->
+<!--      <version>3.3.1</version>-->
+<!--    </dependency>-->
     <!--    Apache Spark: Required    -->
     <dependency>
       <groupId>org.apache.spark</groupId>
@@ -70,30 +78,30 @@
       <version>3.3.0-SNAPSHOT</version>
       <scope>compile</scope>
     </dependency>
-    <dependency>
-      <groupId>org.apache.spark</groupId>
-      <artifactId>spark-network-common_2.12</artifactId>
-      <version>3.3.0-SNAPSHOT</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.spark</groupId>
-      <artifactId>spark-network-shuffle_2.12</artifactId>
-      <version>3.3.0-SNAPSHOT</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.spark</groupId>
-      <artifactId>spark-tags_2.12</artifactId>
-      <version>3.3.0-SNAPSHOT</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.spark</groupId>
-      <artifactId>spark-unsafe_2.12</artifactId>
-      <version>3.3.0-SNAPSHOT</version>
-      <scope>compile</scope>
-    </dependency>
+<!--    <dependency>-->
+<!--      <groupId>org.apache.spark</groupId>-->
+<!--      <artifactId>spark-network-common_2.12</artifactId>-->
+<!--      <version>3.3.0-SNAPSHOT</version>-->
+<!--      <scope>compile</scope>-->
+<!--    </dependency>-->
+<!--    <dependency>-->
+<!--      <groupId>org.apache.spark</groupId>-->
+<!--      <artifactId>spark-network-shuffle_2.12</artifactId>-->
+<!--      <version>3.3.0-SNAPSHOT</version>-->
+<!--      <scope>compile</scope>-->
+<!--    </dependency>-->
+<!--    <dependency>-->
+<!--      <groupId>org.apache.spark</groupId>-->
+<!--      <artifactId>spark-tags_2.12</artifactId>-->
+<!--      <version>3.3.0-SNAPSHOT</version>-->
+<!--      <scope>compile</scope>-->
+<!--    </dependency>-->
+<!--    <dependency>-->
+<!--      <groupId>org.apache.spark</groupId>-->
+<!--      <artifactId>spark-unsafe_2.12</artifactId>-->
+<!--      <version>3.3.0-SNAPSHOT</version>-->
+<!--      <scope>compile</scope>-->
+<!--    </dependency>-->
     <!--    Apache Arrow    -->
 <!--    <dependency>-->
 <!--      <groupId>org.apache.arrow</groupId>-->
@@ -145,11 +153,11 @@
 <!--      <version>1.12.2</version>-->
 <!--    </dependency>-->
     <!--    Required  -->
-    <dependency>
-      <groupId>org.apache.parquet</groupId>
-      <artifactId>parquet-hadoop</artifactId>
-      <version>1.12.1</version>
-    </dependency>
+<!--    <dependency>-->
+<!--      <groupId>org.apache.parquet</groupId>-->
+<!--      <artifactId>parquet-hadoop</artifactId>-->
+<!--      <version>1.12.1</version>-->
+<!--    </dependency>-->
     <!--    FasterXML Jackson Core -->
 <!--    <dependency>-->
 <!--      <groupId>com.fasterxml.jackson.core</groupId>-->
