@@ -15,8 +15,8 @@
     <parquet.version>1.12.2</parquet.version>
 <!--    <parquet.version>1.12.0</parquet.version>-->
     <spark.version>3.3.0-SNAPSHOT</spark.version>
-    <jackson.version>2.13.2</jackson.version>
-<!--    <jackson.version>2.10.0</jackson.version>-->
+<!--    <jackson.version>2.13.2</jackson.version>-->
+    <jackson.version>2.10.0</jackson.version>
     <netty.version>4.1.74.Final</netty.version>
     <!-- <jackson.version>2.10.0</jackson.version> -->
     <maven.compiler.source>1.8</maven.compiler.source>
@@ -59,12 +59,12 @@
     </dependency>
     <!--      Junit   -->
     <!-- test -->
-    <!-- <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.4</version>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.8.2</version>
       <scope>test</scope>
-    </dependency> -->
+    </dependency>
     <!--    Specs   -->
     <!-- test -->
     <!-- <dependency>
@@ -142,6 +142,11 @@
       <artifactId>parquet-hadoop</artifactId>
       <version>${parquet.version}</version>
     </dependency>
+    <dependency>
+      <groupId>org.apache.parquet</groupId>
+      <artifactId>parquet-avro</artifactId>
+      <version>1.11.0</version>
+    </dependency>
     <!--    FasterXML Jackson Core -->
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
@@ -149,17 +154,22 @@
       <version>${jackson.version}</version>
     </dependency>
     <!-- test -->
-    <!-- <dependency>
+    <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
       <version>${jackson.version}</version>
-    </dependency> -->
+    </dependency>
     <!-- test -->
-    <!-- <dependency>
+    <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-annotations</artifactId>
       <version>${jackson.version}</version>
-    </dependency> -->
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.module</groupId>
+      <artifactId>jackson-module-scala_2.12</artifactId>
+      <version>${jackson.version}</version>
+    </dependency>
 <!--    <dependency>-->
 <!--      <groupId>org.apache.maven.plugins</groupId>-->
 <!--      <artifactId>maven-eclipse-plugin</artifactId>-->
@@ -222,6 +232,13 @@
   <build>
     <plugins>
       <plugin>
+        <!--   Run Unit tests     -->
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>2.22.2</version>
+      </plugin>
+      <plugin>
+        <!--   Easy way to check dependency-conflicts     -->
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
         <version>3.0.0-M3</version>
@@ -232,6 +249,7 @@
         </configuration>
       </plugin>
       <plugin>
+        <!--   Plugin to build dependency jar     -->
         <artifactId>maven-assembly-plugin</artifactId>
         <configuration>
           <descriptorRefs>
@@ -240,6 +258,7 @@
         </configuration>
       </plugin>
       <plugin>
+        <!--    Plugin to build scala source files    -->
         <groupId>org.scala-tools</groupId>
         <artifactId>maven-scala-plugin</artifactId>
         <version>2.15.2</version>
@@ -265,6 +284,14 @@
             </goals>
           </execution>
         </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <source>9</source>
+          <target>9</target>
+        </configuration>
       </plugin>
     </plugins>
   </build>
