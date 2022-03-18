@@ -15,8 +15,7 @@
  * limitations under the License.
  */
 
-// NOTE: copied from arrow-vector-6.0.0-sources.jar with the sole reason to add a (deprecated) constructor
-// if I find a better way, I WILL apply it
+// NOTE: copied from arrow-vector-6.0.0-sources.jar with the sole reason to add a (deprecated) constructor (2022-03-18)
 
 package org.apache.arrow.vector.types.pojo;
 
