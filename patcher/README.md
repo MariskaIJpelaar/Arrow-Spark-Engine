@@ -20,3 +20,9 @@ Note that the path in the original version and the path in the pather should be 
 | org.apache.arrow | arrow-vector | 6.0.0   | org/apache/arrow/vector/types/pojo/Field.java |
 |                  |              |         |                                               |
 |                  |              |         |                                               |
+
+## Acknowledgements
+The idea of making a local repository from the patches is a combination of the following web-pages:
+ - [Maven Relative Path Dependency](https://stackoverflow.com/a/2230464) (2022-03-18)
+ - [Replacing and Patching Core Java Classes](https://media.techtarget.com/tss/static/articles/content/CovertJava/Sams-CovertJava-15.pdf) (2022-03-18)
+ - [Monkey Patching in Java](https://stackoverflow.com/a/42141003) (2022-03-18)
