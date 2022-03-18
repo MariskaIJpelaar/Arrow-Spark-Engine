@@ -5,12 +5,19 @@
   <version>1.0-SNAPSHOT</version>
   <inceptionYear>2008</inceptionYear>
   <properties>
+    <!-- Highest version used by dependencies, although spark has conflicts in this...
+       In particular: spark-network-common_2.12 requires 2.12.15, but
+                      com.twitter:chill_2.12 requires 2.12.14 -->
     <scala.version>2.12.15</scala.version>
-    <!-- <arrow.version>6.0.0</arrow.version> -->
-    <arrow.version>7.0.0</arrow.version>
+     <arrow.version>6.0.0</arrow.version>
+<!--    <arrow.version>7.0.0</arrow.version>-->
+<!--    <arrow.version>5.0.0</arrow.version>-->
     <parquet.version>1.12.2</parquet.version>
+<!--    <parquet.version>1.12.0</parquet.version>-->
     <spark.version>3.3.0-SNAPSHOT</spark.version>
     <jackson.version>2.13.2</jackson.version>
+<!--    <jackson.version>2.10.0</jackson.version>-->
+    <netty.version>4.1.74.Final</netty.version>
     <!-- <jackson.version>2.10.0</jackson.version> -->
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
@@ -24,9 +31,19 @@
       <name>remote spark repository for snapshots</name>
       <url>https://repository.apache.org/snapshots</url>
     </repository>
+    <repository>
+      <id>local-patches</id>
+      <url>file://${project.basedir}/patcher</url>
+    </repository>
   </repositories>
 
   <dependencies>
+    <dependency>
+      <groupId>nl.tudelft.abs.ffiorini</groupId>
+      <artifactId>Arrow-Spark-Engine-Patch</artifactId>
+      <version>1.0-SNAPSHOT</version>
+    </dependency>
+    <!--  DIRECT DEPENDENCIES  -->
     <!--      Scala    -->
     <!-- test -->
     <!-- <dependency>
@@ -70,24 +87,24 @@
       <version>${arrow.version}</version>
     </dependency>
     <!-- test -->
-    <!-- <dependency>
+    <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-memory</artifactId>
       <version>${arrow.version}</version>
       <type>pom</type>
-    </dependency> -->
+    </dependency>
     <!-- test -->
-   <!--  <dependency>
+    <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-memory-unsafe</artifactId>
       <version>${arrow.version}</version>
-    </dependency> -->
+    </dependency>
     <!-- test -->
-    <!-- <dependency>
+    <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-memory-netty</artifactId>
       <version>${arrow.version}</version>
-    </dependency> -->
+    </dependency>
     <!--    Required -->
     <dependency>
       <groupId>org.apache.arrow</groupId>
@@ -96,11 +113,11 @@
     </dependency>
     <!--    Apache Parquet  -->
     <!-- test -->
-    <!-- <dependency>
+    <dependency>
       <groupId>org.apache.parquet</groupId>
       <artifactId>parquet-common</artifactId>
       <version>${parquet.version}</version>
-    </dependency> -->
+    </dependency>
     <!--    Required  -->
     <dependency>
       <groupId>org.apache.parquet</groupId>
@@ -114,11 +131,11 @@
       <version>${parquet.version}</version>
     </dependency> -->
     <!-- test -->
-    <!-- <dependency>
+    <dependency>
       <groupId>org.apache.parquet</groupId>
       <artifactId>parquet-jackson</artifactId>
       <version>${parquet.version}</version>
-    </dependency> -->
+    </dependency>
     <!--    Required  -->
     <dependency>
       <groupId>org.apache.parquet</groupId>
@@ -147,6 +164,57 @@
 <!--      <groupId>org.apache.maven.plugins</groupId>-->
 <!--      <artifactId>maven-eclipse-plugin</artifactId>-->
 <!--      <version>2.10</version>-->
+<!--    </dependency>-->
+    <!--  INDIRECT DEPENDENCIES - CONFLICT SOLVING -->
+<!--    <dependency>-->
+<!--      <groupId>com.google.code.findbugs</groupId>-->
+<!--      <artifactId>jsr305</artifactId>-->
+<!--      <version>3.0.2</version>-->
+<!--    </dependency>-->
+<!--    <dependency>-->
+<!--      <groupId>org.xerial.snappy</groupId>-->
+<!--      <artifactId>snappy-java</artifactId>-->
+<!--      <version>1.1.8.4</version>-->
+<!--    </dependency>-->
+<!--    <dependency>-->
+<!--      <groupId>org.apache.arrow</groupId>-->
+<!--      <artifactId>arrow-format</artifactId>-->
+<!--      <version>${arrow.version}</version>-->
+<!--    </dependency>-->
+<!--    <dependency>-->
+<!--      <groupId>org.slf4j</groupId>-->
+<!--      <artifactId>slf4j-api</artifactId>-->
+<!--      <version>1.7.33</version>-->
+<!--    </dependency>-->
+<!--    <dependency>-->
+<!--      <groupId>commons-codec</groupId>-->
+<!--      <artifactId>commons-codec</artifactId>-->
+<!--      <version>1.15</version>-->
+<!--    </dependency>-->
+<!--    <dependency>-->
+<!--      <groupId>com.fasterxml.jackson.core</groupId>-->
+<!--      <artifactId>jackson-annotations</artifactId>-->
+<!--      <version>${jackson.version}</version>-->
+<!--    </dependency>-->
+<!--    <dependency>-->
+<!--      <groupId>com.fasterxml.jackson.core</groupId>-->
+<!--      <artifactId>jackson-databind</artifactId>-->
+<!--      <version>${jackson.version}</version>-->
+<!--    </dependency>-->
+<!--    <dependency>-->
+<!--      <groupId>io.netty</groupId>-->
+<!--      <artifactId>netty-common</artifactId>-->
+<!--      <version>${netty.version}</version>-->
+<!--    </dependency>-->
+<!--    <dependency>-->
+<!--      <groupId>io.netty</groupId>-->
+<!--      <artifactId>netty-buffer</artifactId>-->
+<!--      <version>${netty.version}</version>-->
+<!--    </dependency>-->
+<!--    <dependency>-->
+<!--      <groupId>com.github.luben</groupId>-->
+<!--      <artifactId>zstd-jni</artifactId>-->
+<!--      <version>1.5.2-1</version>-->
 <!--    </dependency>-->
   </dependencies>
 
