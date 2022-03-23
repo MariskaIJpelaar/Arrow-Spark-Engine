@@ -65,6 +65,20 @@
       <version>5.8.2</version>
       <scope>test</scope>
     </dependency>
+    <!-- scalatest -->
+    <dependency>
+      <groupId>org.scalatest</groupId>
+      <artifactId>scalatest_2.12</artifactId>
+      <version>3.3.0-SNAP3</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- scalatest junit 5 runner -->
+    <dependency>
+      <groupId>co.helmethair</groupId>
+      <artifactId>scalatest-junit-runner</artifactId>
+      <version>0.1.10</version>
+      <scope>test</scope>
+    </dependency>
     <!--    Specs   -->
     <!-- test -->
     <!-- <dependency>
