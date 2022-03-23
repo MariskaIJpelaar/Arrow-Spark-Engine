@@ -51,16 +51,6 @@ public class SmallParquetReaderTest {
 
         ParquetToArrowConverter handler = new ParquetToArrowConverter();
         handler.process(filename);
-        VectorSchemaRoot root = handler.getVectorSchemaRoot();
-        for (ValueVector v: root.getFieldVectors()) {
-
-        }
-
-//        Optional<IntVector> ids = handler.getIntVector();
-//
-//        assertFalse(ids.isEmpty());
-//        Optional<VarCharVector> names = handler.getVarCharVector();
-//        assertFalse(names.isEmpty());
-//        assert false;
+        assertTrue(handler.getVectorSchemaRoot().equals(ParquetWriter.get_vector_schema_root()));
     }
 }

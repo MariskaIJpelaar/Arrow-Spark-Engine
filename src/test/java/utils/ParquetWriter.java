@@ -2,9 +2,7 @@ package utils;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.IntVector;
-import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
@@ -12,13 +10,13 @@ import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.parquet.arrow.schema.SchemaConverter;
-import org.apache.parquet.arrow.schema.SchemaMapping;
 import org.apache.parquet.avro.AvroParquetWriter;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.io.OutputFile;
 import org.apache.parquet.schema.MessageType;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -34,8 +32,6 @@ public class ParquetWriter {
     private static MessageType message_type = null;
     public static MessageType get_message_type() { return message_type; }
 
-    private static List<FieldVector> fieldVectors = null;
-
     public static void write_default_simple(OutputFile fileToWrite) {
         List<GenericData.Record> recordsToWrite = List.of(
                 new GenericRecordBuilder(default_schema).set("id", 1).set("name", "John").build(),
@@ -45,38 +41,44 @@ public class ParquetWriter {
         write(fileToWrite, default_schema, recordsToWrite);
     }
 
-    private static RuntimeException setFieldVectors(Schema schema, List<GenericData.Record> recordsToWrite) {
-        // TODO: implement!! Might be nonsense now...
-        BufferAllocator allocater = new RootAllocator(Integer.MAX_VALUE);
-        SchemaConverter converter = new SchemaConverter();
-        SchemaMapping mapping = converter.fromParquet(get_message_type());
-        org.apache.arrow.vector.types.pojo.Schema arrowSchema = mapping.getArrowSchema();
+    private static VectorSchemaRoot root = null;
+    public static VectorSchemaRoot get_vector_schema_root() { return root; }
 
-        fieldVectors = new ArrayList<>();
+    private static void set_vector_schema_root(List<GenericData.Record> recordsToWrite) {
+        BufferAllocator allocater = new RootAllocator(Integer.MAX_VALUE);
+        org.apache.arrow.vector.types.pojo.Schema arrowSchema = new SchemaConverter().fromParquet(get_message_type()).getArrowSchema();
+
+        List<FieldVector> field_vectors = new ArrayList<>();
         for (Field field : arrowSchema.getFields()) {
-//            Schema.Type type = field.schema().getType();
             FieldVector vector = field.createVector(allocater);
 
             switch (field.getType().getTypeID()) {
-                case Int: ((IntVector) vector).allocateNew(); break;
-                case Binary: ((VarCharVector) vector).allocateNew(); break;
-                default: return new RuntimeException("[ParquetWriter] type not supported");
+                case Int: ((IntVector) vector).allocateNew(recordsToWrite.size()); break;
+                case Utf8: ((VarCharVector) vector).allocateNew(recordsToWrite.size()); break;
+                default: throw new RuntimeException("[ParquetWriter] type not supported");
             }
 
             int i = 0;
             for (GenericData.Record record : recordsToWrite) {
                 switch (field.getType().getTypeID()) {
-                    case Int: ((IntVector) vector).setSafe();
+                    case Int:
+                        assert vector instanceof IntVector;
+                        // we allocated enough space for all records, so we prefer set() over setSafe()
+                        ((IntVector) vector).set(i, (int)record.get(field.getName()));
                         break;
-                    case Binary:
+                    case Utf8:
+                        assert vector instanceof VarCharVector;
+                        // we allocated enough space for all records, so we prefer set() over setSafe()
+                        ((VarCharVector) vector).set(i, ((String)record.get(field.getName())).getBytes(StandardCharsets.UTF_8));
                         break;
-                    default: return new RuntimeException("[ParquetWriter] type not supported");
+                    default: throw new RuntimeException("[ParquetWriter] type not supported");
                 }
                 ++i;
             }
-            fieldVectors.add(vector);
+            vector.setValueCount(recordsToWrite.size());
+            field_vectors.add(vector);
         }
-        return null;
+        root = new VectorSchemaRoot(arrowSchema, field_vectors, recordsToWrite.size());
     }
 
     public static void write(OutputFile fileToWrite, Schema schema, List<GenericData.Record> recordsToWrite) {
@@ -94,7 +96,7 @@ public class ParquetWriter {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        setFieldVectors(schema, recordsToWrite);
+        set_vector_schema_root(recordsToWrite);
     }
 
 

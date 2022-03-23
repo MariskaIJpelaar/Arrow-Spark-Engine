@@ -108,6 +108,7 @@ public class ParquetToArrowConverter {
     List<FieldVector> vectors = vectorSchemaRoot.getFieldVectors();
     int size = colDesc.size();
     PageReadStore pageReadStore = reader.readNextRowGroup();
+    int total_rows = 0;
     while (pageReadStore != null) {
       ColumnReadStoreImpl colReader =
           new ColumnReadStoreImpl(
@@ -117,6 +118,7 @@ public class ParquetToArrowConverter {
               reader.getFileMetaData().getCreatedBy());
 
       int rows = (int) pageReadStore.getRowCount();
+      total_rows = Math.max(total_rows, rows);
       int i = 0;
       while (i < size) {
         ColumnDescriptor col = colDesc.get(i);
@@ -140,6 +142,7 @@ public class ParquetToArrowConverter {
       }
       pageReadStore = reader.readNextRowGroup();
     }
+    vectorSchemaRoot.setRowCount(total_rows);
     t7 = System.nanoTime();
     time.add((t7 - t6) / 1e9d);
   }
