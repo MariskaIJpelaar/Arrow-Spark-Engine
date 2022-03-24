@@ -1,8 +1,9 @@
 package org.apache.spark.rdd
 
-import org.apache.arrow.memory.RootAllocator
+import org.apache.arrow.memory.{BufferAllocator, RootAllocator}
 import org.apache.arrow.vector.types.Types.MinorType
-import org.apache.arrow.vector.{BigIntVector, IntVector, StringVector, ValueVector, VarBinaryVector, ZeroVector}
+import org.apache.arrow.vector.util.Text
+import org.apache.arrow.vector.{BigIntVector, IntVector, StringVector, ValueVector, VarBinaryVector, VarCharVector, ZeroVector}
 import org.apache.spark.{Partition, SparkException}
 import org.apache.spark.internal.Logging
 
@@ -163,40 +164,26 @@ class ArrowPartition extends Partition with Externalizable with Logging {
     * Important: in case of two vectors (Tuple2 result type in transformations), the order of the vectors 
     * is really important. So the individual case are treated separately 
     * (i.e. (INT, STRING) != (STRING, INT) */
+
+
+    def singleReadExternal[U <: ValueVector, T] (set: (U, Int, T) => Unit)(implicit ct: ClassTag[U]): Unit = {
+      val new_vector = ct.runtimeClass.getDeclaredConstructor(classOf[String], classOf[BufferAllocator]).newInstance("vector", allocator).asInstanceOf[U]
+      _data = Array[ValueVector](new_vector, new ZeroVector("zero vector"))
+      _data.head.asInstanceOf[U].setInitialCapacity(len)
+      _data.head.asInstanceOf[U].allocateNew()
+      for (i <- 0 until len) set(_data.head.asInstanceOf[U], i, in.readObject().asInstanceOf[T])
+      _data.head.setValueCount(len)
+    }
+
     nVecs match {
       case 1 =>
         val minorType = in.readObject().asInstanceOf[MinorType]
         minorType match {
-          case MinorType.INT =>
-            _data = Array[ValueVector](new IntVector("vector", allocator), new ZeroVector)
-            _data.head.asInstanceOf[IntVector].setInitialCapacity(len)
-            _data.head.asInstanceOf[IntVector].allocateNew()
-            for (i <- 0 until len) _data.head.asInstanceOf[IntVector]
-              .set(i, in.readObject().asInstanceOf[Int])
-            _data.head.setValueCount(len)
-          case MinorType.BIGINT =>
-            _data = Array[ValueVector](new BigIntVector("vector", allocator), new ZeroVector)
-            _data.head.asInstanceOf[BigIntVector].setInitialCapacity(len)
-            _data.head.asInstanceOf[BigIntVector].allocateNew()
-            for (i <- 0 until len) _data.head.asInstanceOf[BigIntVector]
-              .set(i, in.readObject().asInstanceOf[Long])
-            _data.head.setValueCount(len)
-          case MinorType.VARBINARY =>
-            _data = Array[ValueVector](new VarBinaryVector("vector", allocator), new ZeroVector)
-            _data.head.asInstanceOf[VarBinaryVector].setInitialCapacity(len)
-            _data.head.asInstanceOf[VarBinaryVector].allocateNew()
-            for (i <- 0 until len) {
-              _data.head.asInstanceOf[VarBinaryVector]
-                .setSafe(i, in.readObject().asInstanceOf[Array[Byte]])
-            }
-            _data.head.setValueCount(len)
-          case MinorType.STRING =>
-            _data = Array[ValueVector](new StringVector("vector", allocator), new ZeroVector)
-            _data.head.asInstanceOf[StringVector].setInitialCapacity(len)
-            _data.head.asInstanceOf[StringVector].allocateNew()
-            for (i <- 0 until len) _data.head.asInstanceOf[StringVector]
-              .setSafe(i, in.readObject().asInstanceOf[String])
-            _data.head.setValueCount(len)
+          case MinorType.INT => singleReadExternal[IntVector, Int]((v: IntVector, i: Int, value: Int) => v.set(i, value))
+          case MinorType.BIGINT => singleReadExternal[BigIntVector, Long]((v: BigIntVector, i: Int, value: Long) => v.set(i, value))
+          case MinorType.VARBINARY => singleReadExternal[VarBinaryVector, Array[Byte]]((v: VarBinaryVector, i: Int, value: Array[Byte]) => v.setSafe(i, value))
+          case MinorType.STRING => singleReadExternal[StringVector, String]((v: StringVector, i: Int, value: String) => v.setSafe(i, value))
+          case MinorType.VARCHAR => singleReadExternal[VarCharVector, Text]((v: VarCharVector, i: Int, value: Text) => v.setSafe(i, value))
           case _ => throw new SparkException("Unsupported Arrow Vector (Single Vector)")
         }
       case 2 =>
