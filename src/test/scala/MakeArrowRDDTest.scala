@@ -1,4 +1,5 @@
 import org.apache.arrow.memory.RootAllocator
+import org.apache.arrow.vector.util.Text
 import org.apache.arrow.vector.{ValueVector, VarCharVector}
 import org.apache.spark.{ArrowSparkContext, SparkConf}
 import org.scalatest.funsuite.AnyFunSuite
@@ -31,7 +32,7 @@ class MakeArrowRDDTest extends AnyFunSuite {
 
     // performtest
     val binArr = Array[ValueVector](vector)
-    val binRDD = sc.makeArrowRDD[Array[Byte]](binArr, default_num_part)
+    val binRDD = sc.makeArrowRDD[Array[Text]](binArr, default_num_part)
     binRDD.first()
 
     // not done with creating the test
