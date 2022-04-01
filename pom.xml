@@ -23,17 +23,15 @@
     <maven.compiler.target>1.8</maven.compiler.target>
   </properties>
 
-<!--  TODO: check https://stackoverflow.com/questions/35186/how-do-i-fix-a-nosuchmethoderror -->
-
   <repositories>
+    <repository>
+      <id>local-patches</id>
+      <url>file://${project.basedir}/patcher</url>
+    </repository>
     <repository>
       <id>spark-SNAPSHOTS</id>
       <name>remote spark repository for snapshots</name>
       <url>https://repository.apache.org/snapshots</url>
-    </repository>
-    <repository>
-      <id>local-patches</id>
-      <url>file://${project.basedir}/patcher</url>
     </repository>
   </repositories>
 
@@ -246,32 +244,6 @@
   <build>
     <plugins>
       <plugin>
-        <!--   Run Unit tests     -->
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <version>2.22.2</version>
-      </plugin>
-      <plugin>
-        <!--   Easy way to check dependency-conflicts     -->
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.0.0-M3</version>
-        <configuration>
-          <rules>
-            <dependencyConvergence />
-          </rules>
-        </configuration>
-      </plugin>
-      <plugin>
-        <!--   Plugin to build dependency jar     -->
-        <artifactId>maven-assembly-plugin</artifactId>
-        <configuration>
-          <descriptorRefs>
-            <descriptorRef>jar-with-dependencies</descriptorRef>
-          </descriptorRefs>
-        </configuration>
-      </plugin>
-      <plugin>
         <!--    Plugin to build scala source files    -->
         <groupId>org.scala-tools</groupId>
         <artifactId>maven-scala-plugin</artifactId>
@@ -305,6 +277,48 @@
         <configuration>
           <source>11</source>
           <target>11</target>
+        </configuration>
+      </plugin>
+      <plugin>
+        <!--   Run Unit tests     -->
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>2.22.2</version>
+      </plugin>
+      <plugin>
+        <!--   Easy way to check dependency-conflicts     -->
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>3.0.0-M3</version>
+        <configuration>
+          <rules>
+            <dependencyConvergence />
+          </rules>
+        </configuration>
+      </plugin>
+      <plugin>
+        <!--    Plugin to build sources-jar     -->
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <version>3.0.0</version>
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <!--    Plugin to build dependency jar     -->
+        <artifactId>maven-assembly-plugin</artifactId>
+        <configuration>
+          <appendAssemblyId>false</appendAssemblyId>
+          <descriptorRefs>
+            <descriptorRef>jar-with-dependencies</descriptorRef>
+          </descriptorRefs>
         </configuration>
       </plugin>
     </plugins>
