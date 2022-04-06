@@ -12,15 +12,18 @@ object EvaluationSuite {
     println("WORDCOUNT EXAMPLE")
     val numPart = 10
 
-    val textRDD = sc.textFile("data/example-10m.txt", numPart)
+    val start_vanilla: Long = System.nanoTime()
+    val textRDD = sc.textFile("data/data/example-10m.txt", numPart)
     textRDD.first()
     val narrTr = textRDD.flatMap(line => line.split(" ")).map(word => (word, 1))
     narrTr.first()
     val wideTr = narrTr.reduceByKey(_ + _)
     wideTr.first()
+    println("Vanilla: %04.3f".format((System.nanoTime()-start_vanilla)/1e9d))
 
+    val start_sparrow: Long = System.nanoTime()
     val handler = new ParquetToArrowConverter
-    handler.process("data/people10m.parquet")
+    handler.process("data/data/people10m.parquet")
     val binArr = Array[ValueVector](handler.getVariableWidthVector.get())
     val binRDD = sc.makeArrowRDD[Array[Byte]](binArr, numPart)
     binRDD.first()
@@ -28,6 +31,7 @@ object EvaluationSuite {
     binNarrTr.first()
     val binWideTr = binNarrTr.reduceByKey(_ + _)
     binWideTr.first()
+    println("SpArrow: %04.3f".format((System.nanoTime()-start_sparrow)/1e9d))
 
     println("END OF WORDCOUNT EXAMPLE")
   }
@@ -60,16 +64,18 @@ object EvaluationSuite {
     println("MINVALUE EXAMPLE")
     val numPart = 10
 
+    val start_vanilla: Long = System.nanoTime()
     val intRDDPar = sc.parallelize(Range(0, 10000000, 1), numPart)
+    intRDDPar.min()
+    println("Vanilla: %04.3f".format((System.nanoTime()-start_vanilla)/1e9d))
 
+    val start_sparrow: Long = System.nanoTime()
     val handler = new ParquetToArrowConverter
-    handler.process("data/numbers-10m.parquet")
+    handler.process("data/data/numbers_10m.parquet")
     val intArr = Array[ValueVector](handler.getIntVector.get())
     val intRDD = sc.makeArrowRDD[Int](intArr, numPart)
-
-    intRDDPar.min()
-
     intRDD.min()
+    println("SpArrow: %04.3f".format((System.nanoTime()-start_sparrow)/1e9d))
 
     val t0 = System.nanoTime()
     intRDD.vectorMin()
