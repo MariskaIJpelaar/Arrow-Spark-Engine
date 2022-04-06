@@ -8,6 +8,7 @@
     <!-- Highest version used by dependencies, although spark has conflicts in this...
        In particular: spark-network-common_2.12 requires 2.12.15, but
                       com.twitter:chill_2.12 requires 2.12.14 -->
+    <java.version>1.8</java.version>
     <scala.version>2.12.15</scala.version>
      <arrow.version>6.0.0</arrow.version>
 <!--    <arrow.version>7.0.0</arrow.version>-->
@@ -21,6 +22,7 @@
     <!-- <jackson.version>2.10.0</jackson.version> -->
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
+    <maven.compiler.release>8</maven.compiler.release>
   </properties>
 
   <repositories>
@@ -275,8 +277,8 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
-          <source>11</source>
-          <target>11</target>
+          <source>8</source>
+          <target>8</target>
         </configuration>
       </plugin>
       <plugin>
@@ -315,7 +317,7 @@
         <!--    Plugin to build dependency jar     -->
         <artifactId>maven-assembly-plugin</artifactId>
         <configuration>
-          <appendAssemblyId>false</appendAssemblyId>
+<!--          <appendAssemblyId>false</appendAssemblyId>-->
           <descriptorRefs>
             <descriptorRef>jar-with-dependencies</descriptorRef>
           </descriptorRefs>

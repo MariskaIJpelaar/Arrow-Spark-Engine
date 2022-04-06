@@ -18,6 +18,7 @@ import org.apache.parquet.schema.MessageType;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 // from: https://stackoverflow.com/a/39734610 (2022-03-18)
@@ -33,7 +34,7 @@ public class ParquetWriter {
     public static MessageType get_message_type() { return message_type; }
 
     public static void write_default_simple(OutputFile fileToWrite) {
-        List<GenericData.Record> recordsToWrite = List.of(
+        List<GenericData.Record> recordsToWrite = Arrays.asList(
                 new GenericRecordBuilder(default_schema).set("id", 1).set("name", "John").build(),
                 new GenericRecordBuilder(default_schema).set("id", 2).set("name", "Suzie").build(),
                 new GenericRecordBuilder(default_schema).set("id", 3).set("name", "Peter").build()
