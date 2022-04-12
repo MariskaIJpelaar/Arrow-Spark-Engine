@@ -12,14 +12,15 @@ import java.time.temporal.ChronoUnit
 
 object Main {
   def main(args: Array[String]): Unit = {
+    val start: Long = System.nanoTime()
 //      System.setProperty("hadoop.home.dir","C:/hadoop")
-      val conf = new SparkConf()
-        .setAppName("Example Program")
+    val conf = new SparkConf()
+      .setAppName("Example Program")
 //        .setMaster("local")
-        .set("spark.memory.offHeap.enabled", "true")
-        .set("spark.memory.offHeap.size", "3048576")
-      val sc = new ArrowSparkContext(conf)
-      sc.setLogLevel("ERROR")
+      .set("spark.memory.offHeap.enabled", "true")
+      .set("spark.memory.offHeap.size", "3048576")
+    val sc = new ArrowSparkContext(conf)
+    sc.setLogLevel("ERROR")
 
     /**
      * NOTE: below we hardcode our configurations for a quick setup
@@ -64,6 +65,7 @@ object Main {
     }
 
     fw.close()
+    println(s"Experiment took %04.3f seconds".format((System.nanoTime()-start)/1e9d))
 
     /* Run experiments here */
 //      EvaluationSuite.wordCount(sc)
