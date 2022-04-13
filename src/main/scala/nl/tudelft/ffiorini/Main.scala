@@ -2,6 +2,7 @@ package nl.tudelft.ffiorini
 
 import nl.tudelft.ffiorini.experiments.EvaluationSuite
 import org.apache.spark.{ArrowSparkContext, SparkConf}
+import picocli.CommandLine
 
 import java.io.{File, FileWriter}
 import java.nio.charset.StandardCharsets
@@ -9,14 +10,32 @@ import java.nio.file.{Files, Path, Paths}
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import java.util.concurrent.Callable
 
 object Main {
   def main(args: Array[String]): Unit = {
+    new CommandLine(new Main()).execute(args:_*)
+
+    /* Run experiments here */
+//      EvaluationSuite.wordCount(sc)
+    
+//      EvaluationSuite.scalaSort(sc)
+//
+//      EvaluationSuite.transformations(sc)
+//
+//      EvaluationSuite.minimumValue(sc)
+  }
+}
+
+class Main extends Callable[Unit] {
+  @picocli.CommandLine.Option(names = Array("-d", "--data-dir"))
+  private var data_dir: String = Paths.get("", "data").toString
+  override def call(): Unit = {
     val start: Long = System.nanoTime()
-//      System.setProperty("hadoop.home.dir","C:/hadoop")
+    //      System.setProperty("hadoop.home.dir","C:/hadoop")
     val conf = new SparkConf()
       .setAppName("Example Program")
-//        .setMaster("local")
+      //        .setMaster("local")
       .set("spark.memory.offHeap.enabled", "true")
       .set("spark.memory.offHeap.size", "3048576")
     val sc = new ArrowSparkContext(conf)
@@ -32,9 +51,9 @@ object Main {
     val log_file: String = "exp" + ZonedDateTime.now().truncatedTo(ChronoUnit.MINUTES).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) + ".log"
     // id, file, range
     val inputs: Array[(String, String, Int)] = Array(
-      ("100k", "data/data/numbers_100k.parquet", 100 * 1000),
-      ("1m", "data/data/numbers_1m.parquet", 1000 * 1000),
-      ("10m", "data/data/numbers_10m.parquet", 10 * 1000 * 1000)
+      ("100k", s"$data_dir/numbers_100k.parquet", 100 * 1000),
+      ("1m", s"$data_dir/numbers_1m.parquet", 1000 * 1000),
+      ("10m", s"$data_dir/numbers_10m.parquet", 10 * 1000 * 1000)
     )
 
     /**
@@ -66,14 +85,5 @@ object Main {
 
     fw.close()
     println(s"Experiment took %04.3f seconds".format((System.nanoTime()-start)/1e9d))
-
-    /* Run experiments here */
-//      EvaluationSuite.wordCount(sc)
-    
-//      EvaluationSuite.scalaSort(sc)
-//
-//      EvaluationSuite.transformations(sc)
-//
-//      EvaluationSuite.minimumValue(sc)
   }
 }
