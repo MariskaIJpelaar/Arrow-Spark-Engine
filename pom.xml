@@ -294,6 +294,7 @@
       </plugin>
       <plugin>
         <!--   Easy way to check dependency-conflicts     -->
+        <!--       see: https://fullstackcode.dev/2022/01/09/complete-guide-to-maven-enforcer-plugin/-->
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
         <version>3.0.0-M3</version>
@@ -302,6 +303,25 @@
             <dependencyConvergence />
           </rules>
         </configuration>
+        <executions>
+          <execution>
+            <phase>compile</phase>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireFileExist>
+                  <message>Did you build the patcher? (See README.md)</message>
+                  <files>
+                    <file>patcher/target/Arrow-Spark-Engine-Patch-1.0-SNAPSHOT.jar</file>
+                  </files>
+                </requireFileExist>
+              </rules>
+              <fail>true</fail>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <!--    Plugin to build sources-jar     -->
