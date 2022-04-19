@@ -2,5 +2,6 @@
 target/
 data/
 output/
+build/
 *.arrow
 arrowOutput
