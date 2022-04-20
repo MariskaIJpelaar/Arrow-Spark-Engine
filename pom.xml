@@ -298,25 +298,25 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
         <version>3.0.0-M3</version>
-        <configuration>
-          <rules>
-            <dependencyConvergence />
-          </rules>
-        </configuration>
+<!--        <configuration>-->
+<!--          <rules>-->
+<!--            <dependencyConvergence />-->
+<!--          </rules>-->
+<!--        </configuration>-->
         <executions>
           <execution>
-            <phase>compile</phase>
             <goals>
               <goal>enforce</goal>
             </goals>
+            <id>enforce-file-exist</id>
             <configuration>
               <rules>
-                <requireFileExist>
+                <requireFilesExist>
                   <message>Did you build the patcher? (See README.md)</message>
                   <files>
                     <file>patcher/target/Arrow-Spark-Engine-Patch-1.0-SNAPSHOT.jar</file>
                   </files>
-                </requireFileExist>
+                </requireFilesExist>
               </rules>
               <fail>true</fail>
             </configuration>
