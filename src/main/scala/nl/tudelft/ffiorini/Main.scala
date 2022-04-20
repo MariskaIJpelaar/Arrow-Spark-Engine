@@ -29,15 +29,18 @@ object Main {
 
 class Main extends Callable[Unit] {
   @picocli.CommandLine.Option(names = Array("-d", "--data-dir"))
-  private var data_dir: String = Paths.get("", "data").toString
+  private var data_dir: String = Paths.get("", "data", "data").toString
+  @picocli.CommandLine.Option(names = Array("-l", "--local"))
+  private var local: Boolean = false
   override def call(): Unit = {
     val start: Long = System.nanoTime()
     //      System.setProperty("hadoop.home.dir","C:/hadoop")
     val conf = new SparkConf()
       .setAppName("Example Program")
-      //        .setMaster("local")
       .set("spark.memory.offHeap.enabled", "true")
       .set("spark.memory.offHeap.size", "3048576")
+    if (local)
+      conf.setMaster("local")
     val sc = new ArrowSparkContext(conf)
     sc.setLogLevel("ERROR")
 

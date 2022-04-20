@@ -13,7 +13,7 @@ mvn org.apache.maven.plugins:maven-install-plugin:2.3.1:install-file -Dfile=targ
 
 ## Update List
 Here we list all files to keep track of when applying an update. 
-Note that the path in the original version and the path in the pather should be the same!
+Note that the path in the original version and the path in the patcher should be the same!
 
 | GroupID          | Artifact     | Version | Path                                          |
 |------------------|--------------|---------|-----------------------------------------------|

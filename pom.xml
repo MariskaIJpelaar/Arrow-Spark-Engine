@@ -26,10 +26,10 @@
   </properties>
 
   <repositories>
-    <repository>
-      <id>local-patches</id>
-      <url>file://${project.basedir}/patcher</url>
-    </repository>
+<!--    <repository>-->
+<!--      <id>local-patches</id>-->
+<!--      <url>file://${project.basedir}/patcher</url>-->
+<!--    </repository>-->
     <repository>
       <id>spark-SNAPSHOTS</id>
       <name>remote spark repository for snapshots</name>
@@ -38,11 +38,11 @@
   </repositories>
 
   <dependencies>
-    <dependency>
-      <groupId>nl.tudelft.abs.ffiorini</groupId>
-      <artifactId>Arrow-Spark-Engine-Patch</artifactId>
-      <version>1.0-SNAPSHOT</version>
-    </dependency>
+<!--    <dependency>-->
+<!--      <groupId>nl.tudelft.abs.ffiorini</groupId>-->
+<!--      <artifactId>Arrow-Spark-Engine-Patch</artifactId>-->
+<!--      <version>1.0-SNAPSHOT</version>-->
+<!--    </dependency>-->
     <dependency>
       <groupId>info.picocli</groupId>
       <artifactId>picocli</artifactId>
@@ -292,37 +292,37 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>2.22.2</version>
       </plugin>
-      <plugin>
-        <!--   Easy way to check dependency-conflicts     -->
-        <!--       see: https://fullstackcode.dev/2022/01/09/complete-guide-to-maven-enforcer-plugin/-->
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.0.0-M3</version>
-<!--        <configuration>-->
-<!--          <rules>-->
-<!--            <dependencyConvergence />-->
-<!--          </rules>-->
-<!--        </configuration>-->
-        <executions>
-          <execution>
-            <goals>
-              <goal>enforce</goal>
-            </goals>
-            <id>enforce-file-exist</id>
-            <configuration>
-              <rules>
-                <requireFilesExist>
-                  <message>Did you build the patcher? (See README.md)</message>
-                  <files>
-                    <file>patcher/target/Arrow-Spark-Engine-Patch-1.0-SNAPSHOT.jar</file>
-                  </files>
-                </requireFilesExist>
-              </rules>
-              <fail>true</fail>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
+<!--      <plugin>-->
+<!--        &lt;!&ndash;   Easy way to check dependency-conflicts     &ndash;&gt;-->
+<!--        &lt;!&ndash;       see: https://fullstackcode.dev/2022/01/09/complete-guide-to-maven-enforcer-plugin/&ndash;&gt;-->
+<!--        <groupId>org.apache.maven.plugins</groupId>-->
+<!--        <artifactId>maven-enforcer-plugin</artifactId>-->
+<!--        <version>3.0.0-M3</version>-->
+<!--&lt;!&ndash;        <configuration>&ndash;&gt;-->
+<!--&lt;!&ndash;          <rules>&ndash;&gt;-->
+<!--&lt;!&ndash;            <dependencyConvergence />&ndash;&gt;-->
+<!--&lt;!&ndash;          </rules>&ndash;&gt;-->
+<!--&lt;!&ndash;        </configuration>&ndash;&gt;-->
+<!--        <executions>-->
+<!--          <execution>-->
+<!--            <goals>-->
+<!--              <goal>enforce</goal>-->
+<!--            </goals>-->
+<!--            <id>enforce-file-exist</id>-->
+<!--            <configuration>-->
+<!--              <rules>-->
+<!--                <requireFilesExist>-->
+<!--                  <message>Did you build the patcher? (See README.md)</message>-->
+<!--                  <files>-->
+<!--                    <file>patcher/target/Arrow-Spark-Engine-Patch-1.0-SNAPSHOT.jar</file>-->
+<!--                  </files>-->
+<!--                </requireFilesExist>-->
+<!--              </rules>-->
+<!--              <fail>true</fail>-->
+<!--            </configuration>-->
+<!--          </execution>-->
+<!--        </executions>-->
+<!--      </plugin>-->
       <plugin>
         <!--    Plugin to build sources-jar     -->
         <groupId>org.apache.maven.plugins</groupId>
