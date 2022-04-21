@@ -49,7 +49,7 @@ class Main extends Callable[Unit] {
      * If we expand this suite for more serius experimentation, we MUST setup a more modular method
      */
     val cache_warmer: Int = 5
-    val nr_runs: Int = 1
+    val nr_runs: Int = 30
     val log_dir: Path = Paths.get("", "output")
     val log_file: String = "exp" + ZonedDateTime.now().truncatedTo(ChronoUnit.MINUTES).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) + ".log"
     // id, file, range
