@@ -14,6 +14,11 @@ import java.util.concurrent.Callable
 
 object Main {
   def main(args: Array[String]): Unit = {
+    println("----------------------------CLASSES----------------------")
+    val cl = ClassLoader.getSystemClassLoader
+    cl.asInstanceOf[java.net.URLClassLoader].getURLs.foreach(println)
+    println("---------------------------------------------------------")
+
     new CommandLine(new Main()).execute(args:_*)
 
     /* Run experiments here */
