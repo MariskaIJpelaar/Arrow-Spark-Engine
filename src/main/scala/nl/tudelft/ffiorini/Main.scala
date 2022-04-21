@@ -14,11 +14,6 @@ import java.util.concurrent.Callable
 
 object Main {
   def main(args: Array[String]): Unit = {
-    println("----------------------------CLASSES----------------------")
-    val cl = ClassLoader.getSystemClassLoader
-    cl.asInstanceOf[java.net.URLClassLoader].getURLs.foreach(println)
-    println("---------------------------------------------------------")
-
     new CommandLine(new Main()).execute(args:_*)
 
     /* Run experiments here */
@@ -40,7 +35,6 @@ class Main extends Callable[Unit] {
   override def call(): Unit = {
     val start: Long = System.nanoTime()
     //      System.setProperty("hadoop.home.dir","C:/hadoop")
-    println("-------------------------------- A")
     val conf = new SparkConf()
       .setAppName("Example Program")
       .set("spark.memory.offHeap.enabled", "true")
@@ -48,7 +42,6 @@ class Main extends Callable[Unit] {
     if (local)
       conf.setMaster("local")
     val sc = new ArrowSparkContext(conf)
-    println("-------------------------------- B")
     sc.setLogLevel("ERROR")
 
     /**
@@ -70,16 +63,8 @@ class Main extends Callable[Unit] {
      * Warm up cache with a simple (vanilla) program
      */
     0 until cache_warmer foreach { _ =>
-      println("-------------------------------- B1")
-      val range = Range(0, 100 * 1000, 1)
-      println("-------------------------------- B2")
-      val parallelRDD = sc.parallelize(range, 10)
-      println("-------------------------------- B3")
-      parallelRDD.min()
-//      sc.parallelize(Range(0, 100 * 1000, 1), 10).min()
+      sc.parallelize(Range(0, 100 * 1000, 1), 10).min()
     }
-
-    println("-------------------------------- C")
 
     /**
      * Setup Log file
@@ -90,8 +75,6 @@ class Main extends Callable[Unit] {
     val fw = new FileWriter(write_file.toFile, true) // append to log file
     fw.write(s"# Experiment repeated $nr_runs times, with running times in seconds\n")
 
-    println("-------------------------------- D")
-
     /**
      * Run the actual experiments
      */
@@ -101,7 +84,6 @@ class Main extends Callable[Unit] {
         fw.write(s"ID: $id\n")
         EvaluationSuite.minimumValue(sc, fw, file, range)
       }
-      println("-------------------------------- E")
     }
 
     fw.close()
