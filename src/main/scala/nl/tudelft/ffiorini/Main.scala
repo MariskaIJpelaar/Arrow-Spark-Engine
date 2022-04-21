@@ -35,6 +35,7 @@ class Main extends Callable[Unit] {
   override def call(): Unit = {
     val start: Long = System.nanoTime()
     //      System.setProperty("hadoop.home.dir","C:/hadoop")
+    println("-------------------------------- A")
     val conf = new SparkConf()
       .setAppName("Example Program")
       .set("spark.memory.offHeap.enabled", "true")
@@ -42,6 +43,7 @@ class Main extends Callable[Unit] {
     if (local)
       conf.setMaster("local")
     val sc = new ArrowSparkContext(conf)
+    println("-------------------------------- B")
     sc.setLogLevel("ERROR")
 
     /**
@@ -66,6 +68,8 @@ class Main extends Callable[Unit] {
       sc.parallelize(Range(0, 100 * 1000, 1), 10).min()
     }
 
+    println("-------------------------------- C")
+
     /**
      * Setup Log file
      */
@@ -74,6 +78,8 @@ class Main extends Callable[Unit] {
     Files.write(write_file, "".getBytes(StandardCharsets.UTF_8)) // clear file
     val fw = new FileWriter(write_file.toFile, true) // append to log file
     fw.write(s"# Experiment repeated $nr_runs times, with running times in seconds\n")
+
+    println("-------------------------------- D")
 
     /**
      * Run the actual experiments
@@ -84,6 +90,7 @@ class Main extends Callable[Unit] {
         fw.write(s"ID: $id\n")
         EvaluationSuite.minimumValue(sc, fw, file, range)
       }
+      println("-------------------------------- E")
     }
 
     fw.close()
