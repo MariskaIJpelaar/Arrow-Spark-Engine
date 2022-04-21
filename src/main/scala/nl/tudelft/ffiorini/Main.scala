@@ -45,7 +45,6 @@ class Main extends Callable[Unit] {
     val sc = new ArrowSparkContext(conf)
     println("-------------------------------- B")
     sc.setLogLevel("ERROR")
-    println("-------------------------------- B1")
 
     /**
      * NOTE: below we hardcode our configurations for a quick setup
@@ -56,20 +55,23 @@ class Main extends Callable[Unit] {
     val log_dir: Path = Paths.get("", "output")
     val log_file: String = "exp" + ZonedDateTime.now().truncatedTo(ChronoUnit.MINUTES).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) + ".log"
     // id, file, range
-    println("-------------------------------- B2")
     val inputs: Array[(String, String, Int)] = Array(
       ("100k", s"$data_dir/numbers_100k.parquet", 100 * 1000),
       ("1m", s"$data_dir/numbers_1m.parquet", 1000 * 1000),
       ("10m", s"$data_dir/numbers_10m.parquet", 10 * 1000 * 1000)
     )
 
-    println("----------------------------------C0")
-
     /**
      * Warm up cache with a simple (vanilla) program
      */
     0 until cache_warmer foreach { _ =>
-      sc.parallelize(Range(0, 100 * 1000, 1), 10).min()
+      println("-------------------------------- B1")
+      val range = Range(0, 100 * 1000, 1)
+      println("-------------------------------- B2")
+      val parallelRDD = sc.parallelize(range, 10)
+      println("-------------------------------- B3")
+      parallelRDD.min()
+//      sc.parallelize(Range(0, 100 * 1000, 1), 10).min()
     }
 
     println("-------------------------------- C")
