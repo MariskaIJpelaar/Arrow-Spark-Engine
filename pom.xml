@@ -15,30 +15,30 @@
 <!--  https://stackoverflow.com/questions/43604429/intellij-doesnt-work-well-with-multi-module-maven-scala-project-->
   <build>
   <pluginManagement>
-    <plugins>
-      <!-- configure scala style -->
-      <plugin>
-        <groupId>org.scalastyle</groupId>
-        <artifactId>scalastyle-maven-plugin</artifactId>
-        <version>0.8.0</version>
-        <executions>
-          <execution>
-            <goals>
-              <goal>check</goal>
-            </goals>
-          </execution>
-        </executions>
-        <configuration>
-          <verbose>false</verbose>
-          <failOnViolation>true</failOnViolation>
-          <includeTestSourceDirectory>true</includeTestSourceDirectory>
-          <failOnWarning>false</failOnWarning>
-          <sourceDirectory>${basedir}/src/main/scala</sourceDirectory>
-          <testSourceDirectory>${basedir}/src/test/scala</testSourceDirectory>
-          <outputFile>${project.basedir}/target/scalastyle-output.xml</outputFile>
-          <outputEncoding>UTF-8</outputEncoding>
-        </configuration>
-      </plugin>
+<!--    <plugins>-->
+<!--      &lt;!&ndash; configure scala style &ndash;&gt;-->
+<!--      <plugin>-->
+<!--        <groupId>org.scalastyle</groupId>-->
+<!--        <artifactId>scalastyle-maven-plugin</artifactId>-->
+<!--        <version>0.8.0</version>-->
+<!--        <executions>-->
+<!--          <execution>-->
+<!--            <goals>-->
+<!--              <goal>check</goal>-->
+<!--            </goals>-->
+<!--          </execution>-->
+<!--        </executions>-->
+<!--        <configuration>-->
+<!--          <verbose>false</verbose>-->
+<!--          <failOnViolation>true</failOnViolation>-->
+<!--          <includeTestSourceDirectory>true</includeTestSourceDirectory>-->
+<!--          <failOnWarning>false</failOnWarning>-->
+<!--          <sourceDirectory>${basedir}/src/main/scala</sourceDirectory>-->
+<!--          <testSourceDirectory>${basedir}/src/test/scala</testSourceDirectory>-->
+<!--          <outputFile>${project.basedir}/target/scalastyle-output.xml</outputFile>-->
+<!--          <outputEncoding>UTF-8</outputEncoding>-->
+<!--        </configuration>-->
+<!--      </plugin>-->
 
       <!-- set scala maven plugin version -->
 <!--      <plugin>-->
@@ -51,7 +51,7 @@
 <!--        </configuration>-->
 
 <!--      </plugin>-->
-    </plugins>
+<!--    </plugins>-->
   </pluginManagement>
   </build>
 
