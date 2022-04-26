@@ -25,7 +25,6 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.ReadOnlyBufferException;
-import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.arrow.memory.BaseAllocator.Verbosity;
