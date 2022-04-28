@@ -8,6 +8,7 @@ import picocli.CommandLine
 import java.io.File
 import java.util.concurrent.Callable
 import scala.reflect.io.Directory
+import scala.sys.exit
 
 object Main {
   def main(args: Array[String]): Unit = {
@@ -31,7 +32,7 @@ class Main extends Callable[Unit] {
     val dir = new File(path)
     if (dir.exists()) {
       println(s"[ERROR] Directory $path already exists")
-      return
+      exit(1)
     }
 
     val sparkBuilder = SparkSession.builder.appName("generator")
@@ -66,6 +67,7 @@ class Main extends Callable[Unit] {
       new Directory(dir).deleteRecursively()
     } else {
       println("[ERROR] Something went wrong with generating the file(s)")
+      exit(1)
     }
   }
 }
