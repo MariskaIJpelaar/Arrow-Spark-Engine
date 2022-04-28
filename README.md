@@ -71,5 +71,14 @@ Arguments:
 > where X is the Xth partition. E.g. if path is `nice/directory/file_a` and the amount is 1, then a single 
 > file is generated in the directory `nice/directory` with the name `file_a_0.parquet`
 
+Build the jar with dependencies with
+```bash
+mvn clean compile assembly:single
+```
+or without dependencies with
+```bash
+mvn package
+```
+
 
 
