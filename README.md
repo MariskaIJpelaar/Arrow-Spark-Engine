@@ -3,7 +3,7 @@ This project consists of two different modules:
 1. SpArrow: the actual project to offload spark-computations to Arrow
 2. Data-Generator: a helper-submodule to generate parquet files containing a range of integers
 
-To build an indiviual project run:
+To build an individual project run:
 ```bash
 mvn --projects [module] [command]
 ```
@@ -64,11 +64,12 @@ maven {
 Arguments:
 1. `-a` or `--amount`: range of integers to generate
 2. `-l` or `--local`: whether to run Spark local or not
-3. `-p` or `--path`: the directory in which to place the generated parquet file
+3. `-p` or `--path`: file-names structure
 4. `-n` or `--num-files`: number of partitions to use to generate files (= number of files to be generated)
 
->Note: each generated file will be placed in the `path` directory and have the name `generatedX.parquet`, 
-> where X is the Xth partition
+>Note: each generated file will be placed in the parent of `path` and have the name `path-basename_X.parquet`, 
+> where X is the Xth partition. E.g. if path is `nice/directory/file_a` and the amount is 1, then a single 
+> file is generated in the directory `nice/directory` with the name `file_a_0.parquet`
 
 
 

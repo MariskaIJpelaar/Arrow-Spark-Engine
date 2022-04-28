@@ -1,12 +1,13 @@
 package nl.lu.mijpelaar
 
 import org.apache.commons.io.FilenameUtils
-import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
+import org.apache.spark.sql.{Row, SparkSession}
 import picocli.CommandLine
 
 import java.io.File
 import java.util.concurrent.Callable
+import scala.reflect.io.Directory
 
 object Main {
   def main(args: Array[String]): Unit = {
@@ -57,7 +58,9 @@ class Main extends Callable[Unit] {
     if (dir.exists && dir.isDirectory) {
       val files = dir.listFiles.filter(_.isFile).filter(file => FilenameUtils.getExtension(file.getName) == "parquet").toList
       files.zipWithIndex.foreach { case (file, idx) =>
-        file.renameTo(new File(path, s"generated$idx.parquet")) }
+        file.renameTo(new File(path + s"_$idx.parquet"))
+      }
+      new Directory(dir).deleteRecursively()
     } else {
       println("[ERROR] Something went wrong with generating the file(s)")
     }
