@@ -22,7 +22,7 @@ class Main extends Callable[Unit] {
   @picocli.CommandLine.Option(names = Array("-l", "--local"))
   private var local: Boolean = false
   @picocli.CommandLine.Option(names = Array("-p", "--path"))
-  private var path: String = "data/generated_" + amount
+  private var path: String = "data/generated"
   @picocli.CommandLine.Option(names = Array("-n", "--num-files"))
   private var numFiles: Int = 1
   @picocli.CommandLine.Option(names = Array("--spark-local-dir"))
@@ -41,6 +41,8 @@ class Main extends Callable[Unit] {
       sparkBuilder.config("spark.master", "local[*]")
     val spark = sparkBuilder.getOrCreate()
 
+    println("-------------------A-----------------")
+
     /**
      * according to: https://spark.apache.org/docs/2.1.0/programming-guide.html#parallelized-collections
      * "One important parameter for parallel collections is the number of partitions
@@ -53,8 +55,11 @@ class Main extends Callable[Unit] {
      * Thus, we keep the second argument as default as we trust Spark :)
      */
     val intRDD = spark.sparkContext.parallelize(Range(0, amount, 1).map(x => Row(x)))
+    println(s"------------------  first: ${intRDD.first()} --------------------")
     val schema = new StructType().add(StructField("num", IntegerType, nullable = false))
     spark.createDataFrame(intRDD, schema).repartition(numFiles).write.parquet(path)
+
+    println("-------------------B-----------------")
 
     /**
      * We have no influence over the parquet-filename, so we rename it ourselves...
