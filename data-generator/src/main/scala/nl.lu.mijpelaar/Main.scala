@@ -54,7 +54,7 @@ class Main extends Callable[Unit] {
      *
      * Thus, we keep the second argument as default as we trust Spark :)
      */
-    val intRDD = spark.sparkContext.parallelize(Range(0, amount, 1).map(x => Row(x)))
+    val intRDD = spark.sparkContext.parallelize(Range(0, amount, 1).map(x => Row(x)), 100)
     println(s"------------------  first: ${intRDD.first()} --------------------")
     val schema = new StructType().add(StructField("num", IntegerType, nullable = false))
     spark.createDataFrame(intRDD, schema).repartition(numFiles).write.parquet(path)
