@@ -24,6 +24,8 @@ class Main extends Callable[Unit] {
   private var path: String = "data/generated_" + amount
   @picocli.CommandLine.Option(names = Array("-n", "--num-files"))
   private var numFiles: Int = 1
+  @picocli.CommandLine.Option(names = Array("--spark-local-dir"))
+  private var sparkLocalDir: String = "/tmp/"
 
   override def call(): Unit = {
     val dir = new File(path)
@@ -33,6 +35,7 @@ class Main extends Callable[Unit] {
     }
 
     val sparkBuilder = SparkSession.builder.appName("generator")
+      .config("spark.local.dir", sparkLocalDir)
     if (local)
       sparkBuilder.config("spark.master", "local[*]")
     val spark = sparkBuilder.getOrCreate()

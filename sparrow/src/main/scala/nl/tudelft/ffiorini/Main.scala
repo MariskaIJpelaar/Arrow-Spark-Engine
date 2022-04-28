@@ -36,6 +36,8 @@ class Main extends Callable[Unit] {
   private var data_file: Option[String] = None
   @picocli.CommandLine.Option(names = Array("-l", "--local"))
   private var local: Boolean = false
+  @picocli.CommandLine.Option(names = Array("--spark-local-dir"))
+  private var sparkLocalDir: String = "/tmp/"
   override def call(): Unit = {
     if (data_dir.isEmpty || data_file.isEmpty ) {
       println("[ERROR] provide either a directory or a file")
@@ -48,6 +50,7 @@ class Main extends Callable[Unit] {
       .setAppName("Example Program")
       .set("spark.memory.offHeap.enabled", "true")
       .set("spark.memory.offHeap.size", "3048576")
+      .set("spark.local.dir", sparkLocalDir)
     if (local)
       conf.setMaster("local")
     val sc = new ArrowSparkContext(conf)
