@@ -66,6 +66,7 @@ Arguments:
 2. `-l` or `--local`: whether to run Spark local or not
 3. `-p` or `--path`: file-names structure
 4. `-n` or `--num-files`: number of partitions to use to generate files (= number of files to be generated)
+5. `--spark-local-dir`: a directory to which spark can log temporary files, default: `/tmp/`
 
 >Note: each generated file will be placed in the parent of `path` and have the name `path-basename_X.parquet`, 
 > where X is the Xth partition. E.g. if path is `nice/directory/file_a` and the amount is 1, then a single 

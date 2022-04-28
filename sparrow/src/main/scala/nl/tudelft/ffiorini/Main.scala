@@ -30,17 +30,17 @@ object Main {
 }
 
 class Main extends Callable[Unit] {
-  @picocli.CommandLine.Option(names = Array("-d", "--data-dir"))
-  private var data_dir: Option[String] = None
+//  @picocli.CommandLine.Option(names = Array("-d", "--data-dir"))
+//  private var data_dir: Option[String] = None
   @picocli.CommandLine.Option(names = Array("-f", "--data-file"))
-  private var data_file: Option[String] = None
+  private var data_file: String = ""
   @picocli.CommandLine.Option(names = Array("-l", "--local"))
   private var local: Boolean = false
   @picocli.CommandLine.Option(names = Array("--spark-local-dir"))
   private var sparkLocalDir: String = "/tmp/"
   override def call(): Unit = {
-    if (data_dir.isEmpty || data_file.isEmpty ) {
-      println("[ERROR] provide either a directory or a file")
+    if (data_file == "" ) {
+      println("[ERROR] please provide a file")
       exit(1)
     }
 
@@ -66,11 +66,11 @@ class Main extends Callable[Unit] {
     val log_dir: Path = Paths.get("", "output")
     val log_file: String = "exp" + ZonedDateTime.now().truncatedTo(ChronoUnit.MINUTES).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) + ".log"
     // id, file, range
-    val inputs: Array[(String, String)] = Array(
-      ("100k", s"$data_dir/numbers_100k.parquet"),
-      ("1m", s"$data_dir/numbers_1m.parquet"),
-      ("10m", s"$data_dir/numbers_10m.parquet")
-    )
+//    val inputs: Array[(String, String)] = Array(
+//      ("100k", s"$data_dir/numbers_100k.parquet"),
+//      ("1m", s"$data_dir/numbers_1m.parquet"),
+//      ("10m", s"$data_dir/numbers_10m.parquet")
+//    )
 
     /**
      * Warm up cache with a simple (vanilla) program
@@ -92,19 +92,19 @@ class Main extends Callable[Unit] {
      * Run the actual experiments
      */
     0 until nr_runs foreach { _ =>
-      if (data_dir.isDefined) {
-        inputs.foreach { case(id, file) =>
-          fw.write(s"# Results for file $file, with id $id\n")
-          fw.write(s"ID: $id\n")
-          EvaluationSuite.minimumValue(spark, sc, fw, file)
-        }
-      }
-      if (data_file.isDefined) {
+//      if (data_dir.isDefined) {
+//        inputs.foreach { case(id, file) =>
+//          fw.write(s"# Results for file $file, with id $id\n")
+//          fw.write(s"ID: $id\n")
+//          EvaluationSuite.minimumValue(spark, sc, fw, file)
+//        }
+//      }
+//      if (data_file.isDefined) {
         fw.write(s"# Results for file $data_file")
-        val name = new File(data_file.get).getName
+        val name = new File(data_file).getName
         fw.write(s"ID: $name")
-        EvaluationSuite.minimumValue(spark, sc, fw, data_file.get)
-      }
+        EvaluationSuite.minimumValue(spark, sc, fw, data_file)
+//      }
     }
 
     fw.close()
