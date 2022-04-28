@@ -3,6 +3,7 @@ package nl.tudelft.ffiorini.experiments
 import org.apache.arrow.parquet.ParquetToArrowConverter
 import org.apache.arrow.vector.ValueVector
 import org.apache.spark.ArrowSparkContext
+import org.apache.spark.sql.SparkSession
 
 import java.io.FileWriter
 import java.nio.charset.StandardCharsets
@@ -61,15 +62,15 @@ object EvaluationSuite {
     println("END OF SCALASORT EXAMPLE")
   }
 
-  def minimumValue(sc: ArrowSparkContext, fw: FileWriter, file: String, range: Int) : Unit = {
+  def minimumValue(spark: SparkSession, sc: ArrowSparkContext, fw: FileWriter, file: String) : Unit = {
     val numPart = 10
 
     val start_vanilla_generate: Long = System.nanoTime()
 //    val intRDDPar = sc.parallelize(Range(0, 10000000, 1), numPart)
-    val intRDDPar = sc.parallelize(Range(0, range, 1), numPart)
+    val intRDDVan = spark.read.parquet(file).rdd.map(x => x.getInt(0))
     fw.write("Vanilla Generate: %04.3f\n".format((System.nanoTime()-start_vanilla_generate)/1e9d))
     val start_vanilla_compute: Long = System.nanoTime()
-    intRDDPar.min()
+    intRDDVan.min()
     fw.write("Vanilla Compute: %04.3f\n".format((System.nanoTime()-start_vanilla_compute)/1e9d))
 
     val start_sparrow_generate: Long = System.nanoTime()
