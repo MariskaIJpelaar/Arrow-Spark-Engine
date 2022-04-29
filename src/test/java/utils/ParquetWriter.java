@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 // from: https://stackoverflow.com/a/39734610 (2022-03-18)
@@ -80,6 +81,41 @@ public class ParquetWriter {
             field_vectors.add(vector);
         }
         root = new VectorSchemaRoot(arrowSchema, field_vectors, recordsToWrite.size());
+    }
+
+    public static class Writable {
+        public OutputFile fileToWrite;
+        public List<GenericData.Record> recordsToWrite;
+
+        public Writable(OutputFile fileToWrite, List<GenericData.Record> recordsToWrite) {
+            this.fileToWrite = fileToWrite;
+            this.recordsToWrite = recordsToWrite;
+        }
+    }
+
+    public static void write_batch(Schema schema, List<Writable> writables) {
+        List<GenericData.Record> total = new ArrayList<>(Collections.emptyList());
+        writables.forEach( (writable) -> {
+            try (org.apache.parquet.hadoop.ParquetWriter<GenericData.Record> writer = AvroParquetWriter
+                    .<GenericData.Record>builder(writable.fileToWrite)
+                    .withSchema(schema)
+                    .withConf(new Configuration())
+                    .withCompressionCodec(CompressionCodecName.SNAPPY)
+                    .build()) {
+                for (GenericData.Record record : writable.recordsToWrite) {
+                    writer.write(record);
+                }
+                writer.close(); // so we can get the Footer
+                if (message_type == null)
+                    message_type = writer.getFooter().getFileMetaData().getSchema();
+                else
+                    message_type.union(writer.getFooter().getFileMetaData().getSchema());
+                total.addAll(writable.recordsToWrite);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
+        set_vector_schema_root(total);
     }
 
     public static void write(OutputFile fileToWrite, Schema schema, List<GenericData.Record> recordsToWrite) {

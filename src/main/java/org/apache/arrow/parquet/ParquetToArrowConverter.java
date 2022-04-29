@@ -18,11 +18,12 @@
 package org.apache.arrow.parquet;
 
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.parquet.utils.DumpGroupConverter;
 import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.apache.arrow.parquet.utils.*;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.arrow.schema.SchemaConverter;
@@ -34,9 +35,16 @@ import org.apache.parquet.column.page.PageReadStore;
 import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.util.HadoopInputFile;
 import org.apache.parquet.schema.MessageType;
+import org.apache.spark.network.protocol.Encoders;
+import scala.collection.Iterator;
+import scala.math.Numeric;
+import scala.reflect.io.Directory;
+import scala.reflect.io.File;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /***
@@ -64,6 +72,51 @@ public class ParquetToArrowConverter {
     this.allocator = new RootAllocator(Integer.MAX_VALUE);
     t1 = System.nanoTime();
     time.add((t1 - t0) / 1e9d);
+  }
+
+  public void process(Directory dir) throws IOException {
+    t2 = System.nanoTime();
+
+    scala.collection.immutable.List<File> files = dir.files().filter((file) -> Objects.equals(FilenameUtils.getExtension(file.name()), "parquet")).toList();
+
+    files.foreach( (file) -> {
+      try {
+        HadoopInputFile inputFile = HadoopInputFile.fromPath(new Path(file.path()), configuration);
+        ParquetFileReader reader = ParquetFileReader.open(inputFile);
+        if (parquetSchema == null)
+          parquetSchema = reader.getFileMetaData().getSchema();
+        else
+          parquetSchema.union(reader.getFileMetaData().getSchema());
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+      return 0;
+    });
+    t3 = System.nanoTime();
+    time.add((t3 - t2) / 1e9d);
+
+    t4 = System.nanoTime();
+    SchemaConverter converter = new SchemaConverter();
+    SchemaMapping mapping = converter.fromParquet(parquetSchema);
+    arrowSchema = mapping.getArrowSchema();
+    vectorSchemaRoot = VectorSchemaRoot.create(arrowSchema, allocator);
+    t5 = System.nanoTime();
+    time.add((t5 - t4) / 1e9d);
+
+    int totalRows = files.mapConserve((file) -> {
+      try {
+        HadoopInputFile inputFile = HadoopInputFile.fromPath(new Path(file.path()), configuration);
+        ParquetFileReader reader = ParquetFileReader.open(inputFile);
+        return Trivedi(reader);
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+    }).toStream().reduceOption(Integer::sum).getOrElse(() -> -1);
+
+    vectorSchemaRoot.setRowCount(totalRows);
+    t7 = System.nanoTime();
+    if (t6 != null)
+      time.add((t7 - t6) / 1e9d);
   }
 
   /***
@@ -99,6 +152,14 @@ public class ParquetToArrowConverter {
     t5 = System.nanoTime();
     time.add((t5 - t4) / 1e9d);
 
+    int total_rows = Trivedi(reader);
+
+    vectorSchemaRoot.setRowCount(total_rows);
+    t7 = System.nanoTime();
+    time.add((t7 - t6) / 1e9d);
+  }
+
+  private int Trivedi(ParquetFileReader reader) throws Exception {
     /* 26.08: The following part has been taken from A. Trivedi's implementation directly,
      * see @link{https://gist.github.com/animeshtrivedi/76de64f9dab1453958e1d4f8eca1605f}
      *
@@ -111,11 +172,11 @@ public class ParquetToArrowConverter {
     int total_rows = 0;
     while (pageReadStore != null) {
       ColumnReadStoreImpl colReader =
-          new ColumnReadStoreImpl(
-              pageReadStore,
-              new DumpGroupConverter(),
-              parquetSchema,
-              reader.getFileMetaData().getCreatedBy());
+              new ColumnReadStoreImpl(
+                      pageReadStore,
+                      new DumpGroupConverter(),
+                      parquetSchema,
+                      reader.getFileMetaData().getCreatedBy());
 
       int rows = (int) pageReadStore.getRowCount();
       total_rows = Math.max(total_rows, rows);
@@ -125,15 +186,15 @@ public class ParquetToArrowConverter {
         switch (col.getPrimitiveType().getPrimitiveTypeName()) {
           case INT32:
             writeIntColumn(
-                colReader.getColumnReader(col), col.getMaxDefinitionLevel(), vectors.get(i), rows);
+                    colReader.getColumnReader(col), col.getMaxDefinitionLevel(), vectors.get(i), rows);
             break;
           case INT64:
             writeLongColumn(
-                colReader.getColumnReader(col), col.getMaxDefinitionLevel(), vectors.get(i), rows);
+                    colReader.getColumnReader(col), col.getMaxDefinitionLevel(), vectors.get(i), rows);
             break;
           case BINARY:
             writeBinaryColumn(
-                colReader.getColumnReader(col), col.getMaxDefinitionLevel(), vectors.get(i), rows);
+                    colReader.getColumnReader(col), col.getMaxDefinitionLevel(), vectors.get(i), rows);
             break;
           default:
             throw new Exception("Unsupported primitive type");
@@ -142,9 +203,7 @@ public class ParquetToArrowConverter {
       }
       pageReadStore = reader.readNextRowGroup();
     }
-    vectorSchemaRoot.setRowCount(total_rows);
-    t7 = System.nanoTime();
-    time.add((t7 - t6) / 1e9d);
+    return total_rows;
   }
 
   public List<Double> getTime() {
