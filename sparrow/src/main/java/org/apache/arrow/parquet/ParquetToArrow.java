@@ -42,8 +42,6 @@ import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.schema.MessageType;
 import org.apache.arrow.vector.ipc.ArrowFileWriter;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.util.*;
 
 import org.apache.arrow.parquet.utils.*;
