@@ -103,11 +103,14 @@ public class ParquetToArrowConverter {
     t5 = System.nanoTime();
     time.add((t5 - t4) / 1e9d);
 
+    final int[] offset = {0}; // Array because it is passed by reference, not by value
     int totalRows = files.mapConserve((file) -> {
       try {
         HadoopInputFile inputFile = HadoopInputFile.fromPath(new Path(file.path()), configuration);
         ParquetFileReader reader = ParquetFileReader.open(inputFile);
-        return Trivedi(reader);
+        int ret = Trivedi(reader, offset[0]);
+        offset[0] += ret;
+        return ret;
       } catch (Exception e) {
         throw new RuntimeException(e);
       }
@@ -152,18 +155,19 @@ public class ParquetToArrowConverter {
     t5 = System.nanoTime();
     time.add((t5 - t4) / 1e9d);
 
-    int total_rows = Trivedi(reader);
+    int total_rows = Trivedi(reader, 0);
 
     vectorSchemaRoot.setRowCount(total_rows);
     t7 = System.nanoTime();
     time.add((t7 - t6) / 1e9d);
   }
 
-  private int Trivedi(ParquetFileReader reader) throws Exception {
+  private int Trivedi(ParquetFileReader reader, int offset) throws Exception {
     /* 26.08: The following part has been taken from A. Trivedi's implementation directly,
      * see @link{https://gist.github.com/animeshtrivedi/76de64f9dab1453958e1d4f8eca1605f}
      *
-     * In case a better alternative arises, it will be included here. */
+     * In case a better alternative arises, it will be included here.
+     * 03.05.2022: Function was adapted s.t. multiple parquet files can be supported */
     t6 = System.nanoTime();
     List<ColumnDescriptor> colDesc = parquetSchema.getColumns();
     List<FieldVector> vectors = vectorSchemaRoot.getFieldVectors();
@@ -183,19 +187,29 @@ public class ParquetToArrowConverter {
       int i = 0;
       while (i < size) {
         ColumnDescriptor col = colDesc.get(i);
+        ColumnReader cr = colReader.getColumnReader(col);
+        int dmax = col.getMaxDefinitionLevel();
         switch (col.getPrimitiveType().getPrimitiveTypeName()) {
-          case INT32:
-            writeIntColumn(
-                    colReader.getColumnReader(col), col.getMaxDefinitionLevel(), vectors.get(i), rows);
+          case INT32: {
+            ValueVectorFiller<IntVector> filler = (vector, index) -> vector.setSafe(index, cr.getInteger());
+            writeColumn(BaseFixedWidthVector::setNull, filler, IntVector.class, cr, dmax, vectors.get(i), total_rows, offset);
             break;
-          case INT64:
-            writeLongColumn(
-                    colReader.getColumnReader(col), col.getMaxDefinitionLevel(), vectors.get(i), rows);
+          }
+          case INT64: {
+            ValueVectorFiller<BigIntVector> filler = (vector, index) -> vector.setSafe(index, cr.getLong());
+            writeColumn(BaseFixedWidthVector::setNull, filler, BigIntVector.class, cr, dmax, vectors.get(i), total_rows, offset);
             break;
-          case BINARY:
-            writeBinaryColumn(
-                    colReader.getColumnReader(col), col.getMaxDefinitionLevel(), vectors.get(i), rows);
+          }
+          case BINARY: {
+            ValueVectorFiller<BaseVariableWidthVector> filler = (vector, index) -> {
+              vector.setIndexDefined(index);
+              byte[] data = cr.getBinary().getBytes();
+              vector.setValueLengthSafe(index, data.length);
+              vector.setSafe(index, data);
+            };
+            writeColumn(BaseVariableWidthVector::setNull, filler, BaseVariableWidthVector.class, cr, dmax, vectors.get(i), total_rows, offset);
             break;
+          }
           default:
             throw new Exception("Unsupported primitive type");
         }
@@ -255,49 +269,35 @@ public class ParquetToArrowConverter {
     return Optional.empty();
   }
 
-  /**** Private accessor methods to populate the FieldVector(s) from Parquet column values ****/
-  private void writeIntColumn(ColumnReader cr, int dmax, FieldVector v, int rows) throws Exception {
-    IntVector vector = (IntVector) v;
-    vector.setInitialCapacity(rows);
-    vector.allocateNew();
-    for (int i = 0; i < rows; i++) {
-      if (cr.getCurrentDefinitionLevel() == dmax) vector.setSafe(i, cr.getInteger());
-      else vector.setNull(i);
 
-      cr.consume();
-    }
-    vector.setValueCount(rows);
+  private interface ValueVectorFiller<T> {
+    /**
+     * Places a new value in the vector at given index.
+     * Function should be safe in the sense that the vector is extended if index > vector.size()
+     * @param vector the vector to place the value in
+     * @param index index at which to place the value
+     */
+    void setSafe(T vector, int index);
   }
 
-  private void writeLongColumn(ColumnReader cr, int dmax, FieldVector v, int rows)
-      throws Exception {
-    BigIntVector vector = (BigIntVector) v;
-    vector.setInitialCapacity(rows);
-    vector.allocateNew();
-    for (int i = 0; i < rows; i++) {
-      if (cr.getCurrentDefinitionLevel() == dmax) vector.setSafe(i, cr.getLong());
-      else vector.setNull(i);
-
-      cr.consume();
-    }
-    vector.setValueCount(rows);
+  private interface ValueVectorNullFiller<T> {
+    /**
+     * Sets the value of the vector at given index to null
+     * Function should be safe in the sense that the vector is extended if index > vector.size()
+     * @param vector the vector to place the value in
+     * @param index index at which to place the value
+     */
+    void setNullSafe(T vector, int index);
   }
 
-  private void writeBinaryColumn(ColumnReader cr, int dmax, FieldVector v, int rows)
-      throws Exception {
-    BaseVariableWidthVector vector = (BaseVariableWidthVector) v;
-    vector.setInitialCapacity(rows);
-    vector.allocateNew();
-    for (int i = 0; i < rows; i++) {
-      if (cr.getCurrentDefinitionLevel() == dmax) {
-        byte[] data = cr.getBinary().getBytes();
-        vector.setIndexDefined(i);
-        vector.setValueLengthSafe(i, data.length);
-        vector.setSafe(i, data);
-      } else vector.setNull(i);
 
+  private <T extends ValueVector> void writeColumn(ValueVectorNullFiller<T> nullFiller, ValueVectorFiller<T> filler, Class<T> clazz, ColumnReader cr, int dmax, FieldVector v, int rows, int offset) {
+    T vector = clazz.cast(v);
+    vector.setValueCount(rows);
+    for (int i = 0; i < rows; ++i) {
+      if (cr.getCurrentDefinitionLevel() == dmax) filler.setSafe(vector, i+offset);
+      else nullFiller.setNullSafe(vector, i+offset);
       cr.consume();
     }
-    vector.setValueCount(rows);
   }
 }
