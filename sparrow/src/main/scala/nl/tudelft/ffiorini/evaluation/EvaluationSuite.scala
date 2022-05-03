@@ -72,6 +72,7 @@ object EvaluationSuite {
     val start_vanilla_read: Long = System.nanoTime()
     spark.read.format("parquet").option("mergeSchema", "true").option("dbtable", tableName)
       .load(Paths.get(dir.toString()).resolve("*").toString)
+      .createOrReplaceTempView(tableName)
     val intRDDVan = spark.table(tableName).rdd.map(x => x.getInt(0))
     fw.write("Vanilla Read: %04.3f\n".format((System.nanoTime()-start_vanilla_read)/1e9d))
     val start_vanilla_compute: Long = System.nanoTime()
