@@ -58,49 +58,53 @@ class Main extends Callable[Unit] {
       exit(1)
     }
 
-    val start: Long = System.nanoTime()
-    val conf = new SparkConf()
-      .setAppName("Example Program")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "3048576")
-      .set("spark.local.dir", sparkLocalDir)
-    if (local)
-      conf.setMaster("local")
-    val sc = new ArrowSparkContext(conf)
-    sc.setLogLevel("ERROR")
-    val spark = SparkSession.builder.config(sc.getConf).getOrCreate()
+    try {
+      val start: Long = System.nanoTime()
+      val conf = new SparkConf()
+        .setAppName("Example Program")
+        .set("spark.memory.offHeap.enabled", "true")
+        .set("spark.memory.offHeap.size", "3048576")
+        .set("spark.local.dir", sparkLocalDir)
+      if (local)
+        conf.setMaster("local")
+      val sc = new ArrowSparkContext(conf)
+      sc.setLogLevel("ERROR")
+      val spark = SparkSession.builder.config(sc.getConf).getOrCreate()
 
-    /**
-     * Warm up cache with a simple (vanilla) program
-     */
-    0 until cache_warmer foreach { _ =>
-      sc.parallelize(Range(0, 100 * 1000, 1), 10).min()
+      /**
+       * Warm up cache with a simple (vanilla) program
+       */
+      0 until cache_warmer foreach { _ =>
+        sc.parallelize(Range(0, 100 * 1000, 1), 10).min()
+      }
+
+      /**
+       * Setup Log file
+       */
+      new File(log_dir.toAbsolutePath.toString).mkdir() // create directory if it does not exist yet
+      val write_file = log_dir.resolve(log_file)
+      Files.write(write_file, "".getBytes(StandardCharsets.UTF_8)) // clear file
+      val fw = new FileWriter(write_file.toFile, true) // append to log file
+      fw.write(s"# Experiment repeated $nr_runs times, with running times in seconds\n")
+      if (data_file != "")
+        fw.write(s"# File used: $data_file\n")
+      else if (data_dir != "")
+        fw.write(s"# Directory used: $data_dir\n")
+
+      /**
+       * Run the actual experiments
+       */
+      0 until nr_runs foreach { _ =>
+        if (data_dir != "")
+          EvaluationSuite.minimumValue(spark, sc, fw, Directory(data_dir))
+        else if (data_file != "")
+          EvaluationSuite.minimumValue(spark, sc, fw, data_file)
+      }
+
+      fw.close()
+      println(s"Experiment took %04.3f seconds".format((System.nanoTime()-start)/1e9d))
+    } catch {
+      case e: Throwable => e.printStackTrace(); exit(1)
     }
-
-    /**
-     * Setup Log file
-     */
-    new File(log_dir.toAbsolutePath.toString).mkdir() // create directory if it does not exist yet
-    val write_file = log_dir.resolve(log_file)
-    Files.write(write_file, "".getBytes(StandardCharsets.UTF_8)) // clear file
-    val fw = new FileWriter(write_file.toFile, true) // append to log file
-    fw.write(s"# Experiment repeated $nr_runs times, with running times in seconds\n")
-    if (data_file != "")
-      fw.write(s"# File used: $data_file\n")
-    else if (data_dir != "")
-      fw.write(s"# Directory used: $data_dir\n")
-
-    /**
-     * Run the actual experiments
-     */
-    0 until nr_runs foreach { _ =>
-      if (data_dir != "")
-        EvaluationSuite.minimumValue(spark, sc, fw, Directory(data_dir))
-      else if (data_file != "")
-        EvaluationSuite.minimumValue(spark, sc, fw, data_file)
-    }
-
-    fw.close()
-    println(s"Experiment took %04.3f seconds".format((System.nanoTime()-start)/1e9d))
   }
 }
