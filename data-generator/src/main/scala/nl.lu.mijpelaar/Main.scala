@@ -39,9 +39,9 @@ class Main extends Callable[Unit] {
       sparkBuilder.config("spark.master", "local[*]")
     val spark = sparkBuilder.getOrCreate()
 
-    println("-------------------A-----------------")
 
     /**
+     * 2022-05-03:
      * according to: https://spark.apache.org/docs/2.1.0/programming-guide.html#parallelized-collections
      * "One important parameter for parallel collections is the number of partitions
      * to cut the dataset into. Spark will run one task for each partition of the
@@ -52,14 +52,12 @@ class Main extends Callable[Unit] {
      *
      * Thus, we keep the second argument as default as we trust Spark :)
      */
-    val intRDD = spark.sparkContext.parallelize(Range(0, amount, 1))
-    println(s"------------------  count intRDD: ${intRDD.count()} --------------------")
-    val rowRDD = intRDD.map(x => Row(x))
-    println(s"------------------  count rowRDD: ${rowRDD.count()} --------------------")
+    val start: Long = System.nanoTime()
+    val intRDD = spark.sparkContext.parallelize(Range(0, amount, 1)).map(x => Row(x))
     val schema = new StructType().add(StructField("num", IntegerType, nullable = false))
-    spark.createDataFrame(rowRDD, schema).write.parquet(path)
+    spark.createDataFrame(intRDD, schema).write.parquet(path)
+    println(s"Generating and writing took %04.3f seconds".format((System.nanoTime()-start)/1e9d))
 
-    println("-------------------B-----------------")
 
     /**
      * We have no influence over the parquet-filename, so we rename it ourselves...
