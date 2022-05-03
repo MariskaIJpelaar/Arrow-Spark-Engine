@@ -1,9 +1,16 @@
 package nl.tudelft.ffiorini
 
-import org.apache.arrow.parquet.ParquetToArrowConverter
+import nl.tudelft.ffiorini.experiments.EvaluationSuite
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.{ArrowSparkContext, SparkConf}
 import picocli.CommandLine
 
-import java.nio.file.Paths
+import java.io.{File, FileWriter}
+import java.nio.charset.StandardCharsets
+import java.nio.file.{Files, Path, Paths}
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.util.concurrent.Callable
 import scala.reflect.io.Directory
 import scala.sys.exit
@@ -11,33 +18,47 @@ import scala.sys.exit
 object Main {
   def main(args: Array[String]): Unit = {
     new CommandLine(new Main()).execute(args:_*)
-
-    /* Run experiments here */
-//      EvaluationSuite.wordCount(sc)
-    
-//      EvaluationSuite.scalaSort(sc)
-//
-//      EvaluationSuite.transformations(sc)
-//
-//      EvaluationSuite.minimumValue(sc)
   }
 }
 
 class Main extends Callable[Unit] {
   @picocli.CommandLine.Option(names = Array("-d", "--data-dir"))
-  private var data_dir: String = Paths.get("", "data", "data").toString
+  private var data_dir: String = ""
+  @picocli.CommandLine.Option(names = Array("-f", "--data-file"))
+  private var data_file: String = ""
   @picocli.CommandLine.Option(names = Array("-l", "--local"))
   private var local: Boolean = false
   @picocli.CommandLine.Option(names = Array("--spark-local-dir"))
   private var sparkLocalDir: String = "/tmp/"
+  @picocli.CommandLine.Option(names = Array("-c", "--cache", "--cache-warmer"))
+  private var cache_warmer: Int = 5
+  @picocli.CommandLine.Option(names = Array("-r", "--runs", "--nr-runs"))
+  private var nr_runs: Int = 30
+  @picocli.CommandLine.Option(names = Array("--log-dir"))
+  private var log_dir: Path = Paths.get("", "output")
+  @picocli.CommandLine.Option(names = Array("--log-file"))
+  private var log_file: String = "exp" + ZonedDateTime.now().truncatedTo(ChronoUnit.MINUTES).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) + ".log"
+
   override def call(): Unit = {
-    if (data_dir == "" ) {
-      println("[ERROR] please provide a file")
+    // User input checks
+    if (data_dir == "" && data_file == "") {
+      println("[ERROR] please provide a directory or file")
+      exit(1)
+    }
+    if (data_dir != "" && data_file != "") {
+      println("[ERROR] please provide either a directory or file")
+      exit(1)
+    }
+    if (data_file != "" && !scala.reflect.io.File(data_file).exists) {
+      println(s"[ERROR] $data_file does not exist")
+      exit(1)
+    }
+    if (data_dir != "" && !Directory(data_dir).exists) {
+      println(s"[ERROR] $data_dir does not exist")
       exit(1)
     }
 
     val start: Long = System.nanoTime()
-    //      System.setProperty("hadoop.home.dir","C:/hadoop")
     val conf = new SparkConf()
       .setAppName("Example Program")
       .set("spark.memory.offHeap.enabled", "true")
@@ -48,21 +69,6 @@ class Main extends Callable[Unit] {
     val sc = new ArrowSparkContext(conf)
     sc.setLogLevel("ERROR")
     val spark = SparkSession.builder.config(sc.getConf).getOrCreate()
-
-    /**
-     * NOTE: below we hardcode our configurations for a quick setup
-     * If we expand this suite for more serius experimentation, we MUST setup a more modular method
-     */
-    val cache_warmer: Int = 5
-    val nr_runs: Int = 30
-    val log_dir: Path = Paths.get("", "output")
-    val log_file: String = "exp" + ZonedDateTime.now().truncatedTo(ChronoUnit.MINUTES).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) + ".log"
-    // id, file, range
-//    val inputs: Array[(String, String)] = Array(
-//      ("100k", s"$data_dir/numbers_100k.parquet"),
-//      ("1m", s"$data_dir/numbers_1m.parquet"),
-//      ("10m", s"$data_dir/numbers_10m.parquet")
-//    )
 
     /**
      * Warm up cache with a simple (vanilla) program
@@ -79,20 +85,22 @@ class Main extends Callable[Unit] {
     Files.write(write_file, "".getBytes(StandardCharsets.UTF_8)) // clear file
     val fw = new FileWriter(write_file.toFile, true) // append to log file
     fw.write(s"# Experiment repeated $nr_runs times, with running times in seconds\n")
+    if (data_file != "")
+      fw.write(s"# File used: $data_file\n")
+    else if (data_dir != "")
+      fw.write(s"# Directory used: $data_dir\n")
 
+    /**
+     * Run the actual experiments
+     */
+    0 until nr_runs foreach { _ =>
+      if (data_dir != "")
+        EvaluationSuite.minimumValue(spark, sc, fw, Directory(data_dir))
+      else if (data_file != "")
+        EvaluationSuite.minimumValue(spark, sc, fw, data_file)
+    }
 
-//    /**
-//     * Run the actual experiments
-//     */
-//    0 until nr_runs foreach { _ =>
-//      inputs.foreach { case(id, file, range) =>
-//        fw.write(s"# Results for file $file and range $range, with id $id\n")
-//        fw.write(s"ID: $id\n")
-//        EvaluationSuite.minimumValue(sc, fw, file, range)
-//      }
-//    }
-
-//    fw.close()
+    fw.close()
     println(s"Experiment took %04.3f seconds".format((System.nanoTime()-start)/1e9d))
   }
 }
