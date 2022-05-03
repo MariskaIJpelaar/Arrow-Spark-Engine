@@ -75,7 +75,14 @@ class Main extends Callable[Unit] {
        * Warm up cache with a simple (vanilla) program
        */
       0 until cache_warmer foreach { _ =>
+        val temp_view = "temp"
         sc.parallelize(Range(0, 100 * 1000, 1), 10).min()
+        if (data_dir != "")
+          spark.read.format("parquet").option("mergeSchema", "true").option("dbtable", temp_view)
+            .load(Paths.get(data_dir).resolve("*").toString)
+            .createOrReplaceTempView(temp_view)
+        else if (data_file != "")
+          spark.read.parquet(data_file).createOrReplaceTempView(temp_view)
       }
 
       /**
