@@ -22,9 +22,7 @@ class Main extends Callable[Unit] {
   @picocli.CommandLine.Option(names = Array("-l", "--local"))
   private var local: Boolean = false
   @picocli.CommandLine.Option(names = Array("-p", "--path"))
-  private var path: String = "data/generated"
-  @picocli.CommandLine.Option(names = Array("-n", "--num-files"))
-  private var numFiles: Int = 1
+  private var path: String = "data/generated/generated"
   @picocli.CommandLine.Option(names = Array("--spark-local-dir"))
   private var sparkLocalDir: String = "/tmp/"
 
@@ -54,11 +52,11 @@ class Main extends Callable[Unit] {
      *
      * Thus, we keep the second argument as default as we trust Spark :)
      */
-    val intRDD = spark.sparkContext.parallelize(Range(0, amount, 1).map(x => Row(x)), 100)
-    val temp = intRDD.collect()
+    val intRDD = spark.sparkContext.parallelize(Range(0, amount, 1).map(x => Row(x)))
+    val _ = intRDD.collect()
     println(s"------------------  first: ${intRDD.first()} --------------------")
     val schema = new StructType().add(StructField("num", IntegerType, nullable = false))
-    spark.createDataFrame(intRDD, schema).repartition(numFiles).write.parquet(path)
+    spark.createDataFrame(intRDD, schema).write.parquet(path)
 
     println("-------------------B-----------------")
 
