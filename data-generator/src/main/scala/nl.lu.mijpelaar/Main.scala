@@ -52,10 +52,12 @@ class Main extends Callable[Unit] {
      *
      * Thus, we keep the second argument as default as we trust Spark :)
      */
-    val intRDD = spark.sparkContext.parallelize(Range(0, amount, 1).map(x => Row(x)))
-    println(s"------------------  count: ${intRDD.count()} --------------------")
+    val intRDD = spark.sparkContext.parallelize(Range(0, amount, 1))
+    println(s"------------------  count intRDD: ${intRDD.count()} --------------------")
+    val rowRDD = intRDD.map(x => Row(x))
+    println(s"------------------  count rowRDD: ${rowRDD.count()} --------------------")
     val schema = new StructType().add(StructField("num", IntegerType, nullable = false))
-    spark.createDataFrame(intRDD, schema).write.parquet(path)
+    spark.createDataFrame(rowRDD, schema).write.parquet(path)
 
     println("-------------------B-----------------")
 
