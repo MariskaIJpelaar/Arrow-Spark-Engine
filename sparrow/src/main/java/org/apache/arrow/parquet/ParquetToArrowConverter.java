@@ -293,11 +293,15 @@ public class ParquetToArrowConverter {
 
   private <T extends ValueVector> void writeColumn(ValueVectorNullFiller<T> nullFiller, ValueVectorFiller<T> filler, Class<T> clazz, ColumnReader cr, int dmax, FieldVector v, int rows, int offset) {
     T vector = clazz.cast(v);
-    vector.setValueCount(rows);
+    if (vector.getValueCapacity() < 1) {
+      vector.allocateNew();
+      vector.setInitialCapacity(rows);
+    }
     for (int i = 0; i < rows; ++i) {
       if (cr.getCurrentDefinitionLevel() == dmax) filler.setSafe(vector, i+offset);
       else nullFiller.setNullSafe(vector, i+offset);
       cr.consume();
     }
+    vector.setValueCount(rows);
   }
 }
