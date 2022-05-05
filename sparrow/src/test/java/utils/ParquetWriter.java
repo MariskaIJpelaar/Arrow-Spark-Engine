@@ -93,7 +93,7 @@ public class ParquetWriter {
         }
     }
 
-    public static void write_batch(Schema schema, List<Writable> writables) {
+    public static void write_batch(Schema schema, List<Writable> writables, boolean save_content) {
         List<GenericData.Record> total = new ArrayList<>(Collections.emptyList());
         writables.forEach( (writable) -> {
             try (org.apache.parquet.hadoop.ParquetWriter<GenericData.Record> writer = AvroParquetWriter
@@ -110,12 +110,14 @@ public class ParquetWriter {
                     message_type = writer.getFooter().getFileMetaData().getSchema();
                 else
                     message_type.union(writer.getFooter().getFileMetaData().getSchema());
-                total.addAll(writable.recordsToWrite);
+                if (save_content)
+                    total.addAll(writable.recordsToWrite);
             } catch (IOException e) {
                 e.printStackTrace();
             }
         });
-        set_vector_schema_root(total);
+        if (save_content && message_type != null)
+            set_vector_schema_root(total);
     }
 
     public static void write(OutputFile fileToWrite, Schema schema, List<GenericData.Record> recordsToWrite) {

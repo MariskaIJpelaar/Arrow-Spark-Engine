@@ -15,7 +15,6 @@ import utils.ParquetWriter;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 
@@ -50,7 +49,7 @@ public class DirectoryReaderTest {
         ParquetWriter.write_batch(schema, Arrays.asList(
                 new ParquetWriter.Writable(firstFile, firstHalf),
                 new ParquetWriter.Writable(secondFile, secondHalf)
-        ));
+        ), true);
     }
 
     @Test
