@@ -66,6 +66,9 @@ public class ParquetToArrowConverter {
   private List<Double> time = new ArrayList<>();
   private Long t0, t1, t2, t3, t4, t5, t6, t7 = 0L;
 
+  private scala.collection.immutable.List<File> files = null;
+  private Iterator<File> it = null;
+
   public ParquetToArrowConverter() {
     t0 = System.nanoTime();
     this.configuration = new Configuration();
@@ -74,10 +77,41 @@ public class ParquetToArrowConverter {
     time.add((t1 - t0) / 1e9d);
   }
 
+  public void clear() {
+    parquetSchema = null;
+    arrowSchema = null;
+    vectorSchemaRoot = null;
+  }
+
+  public void prepareDirectory(Directory dir) {
+    files = dir.files().filter((file) -> Objects.equals(FilenameUtils.getExtension(file.name()), "parquet")).toList();
+    it = files.toIterator();
+  }
+
+  /**
+   * Processes all files as prepared by prepareDirectory(Directory)
+   * Overwrites previous vectors
+   * @return if an action was performed (there were still files left to process)
+   */
+  public boolean processFromDirectory() throws Exception {
+    if (files == null)
+      return false;
+    if (!it.hasNext())
+      return false;
+
+    clear();
+    process(it.next().toString());
+    return true;
+  }
+
+  /**
+   * Warning: only use this function if your data fits into memory
+   * @param dir The Director to process
+   */
   public void process(Directory dir) throws IOException {
     t2 = System.nanoTime();
 
-    scala.collection.immutable.List<File> files = dir.files().filter((file) -> Objects.equals(FilenameUtils.getExtension(file.name()), "parquet")).toList();
+    files = dir.files().filter((file) -> Objects.equals(FilenameUtils.getExtension(file.name()), "parquet")).toList();
 
     files.foreach( (file) -> {
       try {
