@@ -1,22 +1,15 @@
-import org.apache.arrow.parquet.ParquetToArrowConverter
-import org.apache.arrow.vector.ValueVector
+import org.apache.avro.SchemaBuilder
 import org.apache.avro.generic.{GenericData, GenericRecordBuilder}
-import org.apache.avro.{Schema, SchemaBuilder, generic}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.parquet.hadoop.util.HadoopOutputFile
-import org.apache.parquet.io.OutputFile
 import org.apache.spark.{ArrowSparkContext, SparkConf}
-import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.Test
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.funsuite.AnyFunSuite
 import utils.ParquetWriter
 
 import java.nio.file.{Files, Paths}
 import java.util
-import java.util.stream.{Collectors, IntStream}
-import scala.reflect.io.{Directory, File}
 
 // TODO: test does not work yet... Need to find a method to clear after generate s.t. I can generate more than I can read?
 // current VM option: -Xmx39m
@@ -62,16 +55,16 @@ class NotEnoughMemoryTest extends AnyFunSuite with BeforeAndAfterAll {
     // run min
 //    assert(asContext.makeArrowRDD[Int](Array[ValueVector](vector), numPart).vectorMin() == 0)
 
-    val handler = new ParquetToArrowConverter
-    handler.prepareDirectory(Directory(File(directory_name)))
-    var intArr = Array[ValueVector]();
-    var intRDD = asContext.makeArrowRDD[Int](intArr, 10)
-    while (handler.processFromDirectory()) {
-      intArr = Array[ValueVector](handler.getIntVector.get())
-      intRDD.union(asContext.makeArrowRDD[Int](intArr, 10))
-    }
-    assert(intRDD.min() == 0)
-    assert(intRDD.count() == amount * num_files)
+//    val handler = new ParquetToArrowConverter
+//    handler.prepareDirectory(Directory(File(directory_name)))
+//    var intArr = Array[ValueVector]();
+//    var intRDD = asContext.makeArrowRDD[Int](intArr, 10)
+//    while (handler.processFromDirectory()) {
+//      intArr = Array[ValueVector](handler.getIntVector.get())
+//      intRDD.union(asContext.makeArrowRDD[Int](intArr, 10))
+//    }
+//    assert(intRDD.min() == 0)
+//    assert(intRDD.count() == amount * num_files)
 
 //    handler.process(Directory(File(directory_name)))
   }

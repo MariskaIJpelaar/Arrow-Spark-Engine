@@ -23,13 +23,13 @@ class MakeArrowRDDTest extends AnyFunSuite {
     vector.setValueCount(names.length)
 
     // setup ArrowSparkContext
-    val sparkConf = new SparkConf()
-      .setAppName("WordCount")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "3048576")
-    sparkConf.setMaster("local[*]")
-    val sc: ArrowSparkContext = new ArrowSparkContext(sparkConf)
-    sc.setLogLevel("ERROR")
+//    val sparkConf = new SparkConf()
+//      .setAppName("WordCount")
+//      .set("spark.memory.offHeap.enabled", "true")
+//      .set("spark.memory.offHeap.size", "3048576")
+//    sparkConf.setMaster("local[*]")
+//    val sc: ArrowSparkContext = new ArrowSparkContext(sparkConf)
+//    sc.setLogLevel("ERROR")
 
     // performtest
 //    val binArr = Array[ValueVector](vector)

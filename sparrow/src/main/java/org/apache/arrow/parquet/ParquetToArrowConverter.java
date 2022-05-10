@@ -72,7 +72,7 @@ public class ParquetToArrowConverter {
   public ParquetToArrowConverter() {
     t0 = System.nanoTime();
     this.configuration = new Configuration();
-    this.allocator = new RootAllocator(Integer.MAX_VALUE);
+    this.allocator = new RootAllocator();
     t1 = System.nanoTime();
     time.add((t1 - t0) / 1e9d);
   }
