@@ -40,6 +40,8 @@ class Main extends Callable[Unit] {
   private var log_file: String = "exp" + ZonedDateTime.now().truncatedTo(ChronoUnit.MINUTES).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) + ".log"
 
   override def call(): Unit = {
+    println("-------------------- START -----------------")
+    println("-------------------- Checking for Input-Errors -----------------")
     // User input checks
     if (data_dir == "" && data_file == "") {
       println("[ERROR] please provide a directory or file")
@@ -59,6 +61,7 @@ class Main extends Callable[Unit] {
     }
 
     try {
+      println("-------------------- Setup Spark -----------------")
       val start: Long = System.nanoTime()
       val conf = new SparkConf()
         .setAppName("Example Program")
@@ -71,6 +74,7 @@ class Main extends Callable[Unit] {
       sc.setLogLevel("ERROR")
       val spark = SparkSession.builder.config(sc.getConf).getOrCreate()
 
+      println("-------------------- Start Cache Warmer -----------------")
       /**
        * Warm up cache with a simple (vanilla) program
        */
@@ -85,6 +89,7 @@ class Main extends Callable[Unit] {
           spark.read.parquet(data_file).createOrReplaceTempView(temp_view)
       }
 
+      println("-------------------- Setup Log File -----------------")
       /**
        * Setup Log file
        */
@@ -97,11 +102,14 @@ class Main extends Callable[Unit] {
         fw.write(s"# File used: $data_file\n")
       else if (data_dir != "")
         fw.write(s"# Directory used: $data_dir\n")
+      fw.flush()
 
+      println("-------------------- Start Actual Experiments -----------------")
       /**
        * Run the actual experiments
        */
-      0 until nr_runs foreach { _ =>
+      0 until nr_runs foreach { i =>
+        println(s"-------------------- Start Experiment $i -----------------")
         if (data_dir != "")
           EvaluationSuite.minimumValue(spark, sc, fw, Directory(data_dir))
         else if (data_file != "")
