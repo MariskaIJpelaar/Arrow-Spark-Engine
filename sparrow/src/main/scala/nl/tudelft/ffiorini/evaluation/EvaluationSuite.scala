@@ -64,11 +64,9 @@ object EvaluationSuite {
     println("END OF SCALASORT EXAMPLE")
   }
 
-  def minimumValue(spark: SparkSession, sc: ArrowSparkContext, fw: FileWriter, dir: Directory) : Unit = {
-    val numPart = 10
+  def minimumValue(spark: SparkSession, sc: ArrowSparkContext, fw: FileWriter, dir: Directory, numPart: Int) : Unit = {
+//    val numPart = 10
     val tableName = "vanilla"
-
-    println("\t-------------------- Starting Vanilla Part -----------------")
 
     // Vanilla Spark
     val start_vanilla_read: Long = System.nanoTime()
@@ -82,8 +80,6 @@ object EvaluationSuite {
     intRDDVan.min()
     fw.write("Vanilla Compute: %04.3f\n".format((System.nanoTime()-start_vanilla_compute)/1e9d))
     fw.flush()
-
-    println("\t-------------------- Starting SpArrow part -----------------")
 
     // SpArrow
     val start_sparrow_read: Long = System.nanoTime()
@@ -103,15 +99,17 @@ object EvaluationSuite {
     fw.flush()
   }
 
-  def minimumValue(spark: SparkSession, sc: ArrowSparkContext, fw: FileWriter, file: String) : Unit = {
-    val numPart = 10
+  def minimumValue(spark: SparkSession, sc: ArrowSparkContext, fw: FileWriter, file: String, numPart: Int) : Unit = {
+//    val numPart = 10
 
     val start_vanilla_generate: Long = System.nanoTime()
     val intRDDVan = spark.read.parquet(file).rdd.map(x => x.getInt(0))
     fw.write("Vanilla Read: %04.3f\n".format((System.nanoTime()-start_vanilla_generate)/1e9d))
+    fw.flush()
     val start_vanilla_compute: Long = System.nanoTime()
     intRDDVan.min()
     fw.write("Vanilla Compute: %04.3f\n".format((System.nanoTime()-start_vanilla_compute)/1e9d))
+    fw.flush()
 
     val start_sparrow_generate: Long = System.nanoTime()
     val handler = new ParquetToArrowConverter
@@ -119,13 +117,16 @@ object EvaluationSuite {
     val intArr = Array[ValueVector](handler.getIntVector.get())
     val intRDD = sc.makeArrowRDD[Int](intArr, numPart)
     fw.write("SpArrow Read: %04.3f\n".format((System.nanoTime()-start_sparrow_generate)/1e9d))
+    fw.flush()
     val start_sparrow_default_compute: Long = System.nanoTime()
     intRDD.min()
     fw.write("SpArrow Compute Default: %04.3f\n".format((System.nanoTime()-start_sparrow_default_compute)/1e9d))
+    fw.flush()
 
     val start_sparrow_offload_compute: Long = System.nanoTime()
     intRDD.vectorMin()
     fw.write("SpArrow Compute Offloading: %04.3f\n".format((System.nanoTime()-start_sparrow_offload_compute)/1e9d))
+    fw.flush()
   }
 
   def transformations(sc: ArrowSparkContext) : Unit = {

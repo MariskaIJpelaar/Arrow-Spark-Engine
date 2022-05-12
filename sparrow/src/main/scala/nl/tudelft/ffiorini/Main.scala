@@ -38,10 +38,10 @@ class Main extends Callable[Unit] {
   private var log_dir: Path = Paths.get("", "output")
   @picocli.CommandLine.Option(names = Array("--log-file"))
   private var log_file: String = "exp" + ZonedDateTime.now().truncatedTo(ChronoUnit.MINUTES).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) + ".log"
+  @picocli.CommandLine.Option(names = Array("--num-part"))
+  private var num_part: Int = 10
 
   override def call(): Unit = {
-    println("-------------------- START -----------------")
-    println("-------------------- Checking for Input-Errors -----------------")
     // User input checks
     if (data_dir == "" && data_file == "") {
       println("[ERROR] please provide a directory or file")
@@ -61,7 +61,6 @@ class Main extends Callable[Unit] {
     }
 
     try {
-      println("-------------------- Setup Spark -----------------")
       val start: Long = System.nanoTime()
       val conf = new SparkConf()
         .setAppName("Example Program")
@@ -74,13 +73,12 @@ class Main extends Callable[Unit] {
       sc.setLogLevel("ERROR")
       val spark = SparkSession.builder.config(sc.getConf).getOrCreate()
 
-      println("-------------------- Start Cache Warmer -----------------")
       /**
        * Warm up cache with a simple (vanilla) program
        */
       0 until cache_warmer foreach { _ =>
         val temp_view = "temp"
-        sc.parallelize(Range(0, 100 * 1000, 1), 10).min()
+        sc.parallelize(Range(0, 100 * 1000, 1), num_part).min()
         if (data_dir != "")
           spark.read.format("parquet").option("mergeSchema", "true").option("dbtable", temp_view)
             .load(Paths.get(data_dir).resolve("*").toString)
@@ -89,7 +87,6 @@ class Main extends Callable[Unit] {
           spark.read.parquet(data_file).createOrReplaceTempView(temp_view)
       }
 
-      println("-------------------- Setup Log File -----------------")
       /**
        * Setup Log file
        */
@@ -104,16 +101,14 @@ class Main extends Callable[Unit] {
         fw.write(s"# Directory used: $data_dir\n")
       fw.flush()
 
-      println("-------------------- Start Actual Experiments -----------------")
       /**
        * Run the actual experiments
        */
-      0 until nr_runs foreach { i =>
-        println(s"-------------------- Start Experiment $i -----------------")
+      0 until nr_runs foreach { _ =>
         if (data_dir != "")
-          EvaluationSuite.minimumValue(spark, sc, fw, Directory(data_dir))
+          EvaluationSuite.minimumValue(spark, sc, fw, Directory(data_dir), num_part)
         else if (data_file != "")
-          EvaluationSuite.minimumValue(spark, sc, fw, data_file)
+          EvaluationSuite.minimumValue(spark, sc, fw, data_file, num_part)
       }
 
       fw.close()
