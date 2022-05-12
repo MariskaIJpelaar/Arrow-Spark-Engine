@@ -19,6 +19,7 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
+import org.apache.arrow.algorithm.min.VectorMinFinder;
 import org.apache.arrow.algorithm.sort.DefaultVectorComparators;
 import org.apache.arrow.algorithm.sort.FixedWidthInPlaceVectorSorter;
 import org.apache.arrow.memory.ArrowBuf;
@@ -284,10 +285,12 @@ public final class IntVector extends BaseFixedWidthVector implements BaseIntVect
 
   public int getMin() {
     DefaultVectorComparators.IntComparator comp = new DefaultVectorComparators.IntComparator();
-    FixedWidthInPlaceVectorSorter sorter = new FixedWidthInPlaceVectorSorter();
-
-    sorter.sortInPlace(this, comp);
-    return this.get(0);
+//    FixedWidthInPlaceVectorSorter sorter = new FixedWidthInPlaceVectorSorter();
+//
+//    sorter.sortInPlace(this, comp);
+//    return this.get(0);
+    int index = VectorMinFinder.linearSearch(this, comp);
+    return this.get(index);
   }
 
 
