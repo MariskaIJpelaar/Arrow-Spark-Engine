@@ -79,7 +79,9 @@ private [spark] class ArrowRDD[T: ClassTag](@transient sc: SparkContext,
   }
 
   def vectorMin() : Int = {
+    println(s"\t\tPartitions: ${this.getPartitions.length}")
     val parts = this.getPartitions.iterator.map(x => x.asInstanceOf[ArrowPartition].min())
+    println("\t\t----------------Done Parts ---------------")
     parts.min
   }
 }

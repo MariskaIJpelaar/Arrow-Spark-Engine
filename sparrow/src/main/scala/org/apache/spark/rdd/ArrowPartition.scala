@@ -497,9 +497,11 @@ class ArrowPartition extends Partition with Externalizable with Logging {
 
   def min() : Int = {
     if (_data.head.isInstanceOf[IntVector] || _data.last.isInstanceOf[IntVector]){
+      println("\t\t\t getMin for min1")
       val min1 = _data.head.asInstanceOf[IntVector].getMin
       if (_data.last.isInstanceOf[ZeroVector]) min1
       else {
+        println("\t\t\t getMin for min2")
         val min2 = _data.last.asInstanceOf[IntVector].getMin
         if (min1 < min2) min1
         else min2
