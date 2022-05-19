@@ -122,24 +122,16 @@ public class ParquetToArrowConverter {
   public void process(Directory dir) throws IOException {
     t2 = System.nanoTime();
 
-    System.out.println("A" + PlatformDependent.usedDirectMemory());
-
     files = dir.files().filter((file) -> Objects.equals(FilenameUtils.getExtension(file.name()), "parquet")).toList();
 
-    System.out.println("B" + PlatformDependent.usedDirectMemory());
-
     files.foreach( (file) -> {
-      System.out.println("C" + PlatformDependent.usedDirectMemory());
       try {
         HadoopInputFile inputFile = HadoopInputFile.fromPath(new Path(file.path()), configuration);
-        System.out.println("CX" + PlatformDependent.usedDirectMemory());
         ParquetFileReader reader = ParquetFileReader.open(inputFile);
-        System.out.println("CY" + PlatformDependent.usedDirectMemory());
         if (parquetSchema == null)
           parquetSchema = reader.getFileMetaData().getSchema();
         else
           parquetSchema.union(reader.getFileMetaData().getSchema());
-        System.out.println("CZ" + PlatformDependent.usedDirectMemory());
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
@@ -147,17 +139,12 @@ public class ParquetToArrowConverter {
     });
     t3 = System.nanoTime();
     time.add((t3 - t2) / 1e9d);
-    System.out.println("D" + PlatformDependent.usedDirectMemory());
 
     t4 = System.nanoTime();
     SchemaConverter converter = new SchemaConverter();
-    System.out.println("E" + PlatformDependent.usedDirectMemory());
     SchemaMapping mapping = converter.fromParquet(parquetSchema);
-    System.out.println("F" + PlatformDependent.usedDirectMemory());
     arrowSchema = mapping.getArrowSchema();
-    System.out.println("G" + PlatformDependent.usedDirectMemory());
     vectorSchemaRoot = VectorSchemaRoot.create(arrowSchema, allocator);
-    System.out.println("H" + PlatformDependent.usedDirectMemory());
     rowsCount = new ArrayList<>(Collections.nCopies(vectorSchemaRoot.getFieldVectors().size(), 0));
     t5 = System.nanoTime();
     time.add((t5 - t4) / 1e9d);
@@ -165,13 +152,9 @@ public class ParquetToArrowConverter {
     final int[] offset = {0}; // Array because it is passed by reference, not by value
     int totalRows = files.mapConserve((file) -> {
       try {
-        System.out.println("IA" + PlatformDependent.usedDirectMemory());
         HadoopInputFile inputFile = HadoopInputFile.fromPath(new Path(file.path()), configuration);
-        System.out.println("IB" + PlatformDependent.usedDirectMemory());
         ParquetFileReader reader = ParquetFileReader.open(inputFile);
-        System.out.println("IC" + PlatformDependent.usedDirectMemory());
         int ret = Trivedi(reader, offset[0]);
-        System.out.println("ID" + PlatformDependent.usedDirectMemory());
         offset[0] += ret;
         return ret;
       } catch (Exception e) {
@@ -179,11 +162,8 @@ public class ParquetToArrowConverter {
       }
     }).toStream().reduceOption(Integer::sum).getOrElse(() -> -1);
 
-    System.out.println("J" + PlatformDependent.usedDirectMemory());
     setVectors();
-    System.out.println("K" + PlatformDependent.usedDirectMemory());
     vectorSchemaRoot.setRowCount(totalRows);
-    System.out.println("L" + PlatformDependent.usedDirectMemory());
     t7 = System.nanoTime();
     if (t6 != null)
       time.add((t7 - t6) / 1e9d);
@@ -237,6 +217,8 @@ public class ParquetToArrowConverter {
      *
      * In case a better alternative arises, it will be included here.
      * 03.05.2022: Function was adapted s.t. multiple parquet files can be supported */
+
+    System.out.println("A " + PlatformDependent.usedDirectMemory());
     t6 = System.nanoTime();
     List<ColumnDescriptor> colDesc = parquetSchema.getColumns();
     List<FieldVector> vectors = vectorSchemaRoot.getFieldVectors();
@@ -244,6 +226,7 @@ public class ParquetToArrowConverter {
     PageReadStore pageReadStore = reader.readNextRowGroup();
     int total_rows = 0;
     System.out.println("Allocated: " + allocator.getAllocatedMemory());
+    System.out.println("B " + PlatformDependent.usedDirectMemory());
 
     while (pageReadStore != null) {
       ColumnReadStoreImpl colReader =
@@ -252,19 +235,26 @@ public class ParquetToArrowConverter {
                       new DumpGroupConverter(),
                       parquetSchema,
                       reader.getFileMetaData().getCreatedBy());
+      System.out.println("CA " + PlatformDependent.usedDirectMemory());
 
       int rows = (int) pageReadStore.getRowCount();
       total_rows = Math.max(total_rows, rows);
       int i = 0;
       while (i < size) {
+        System.out.println("DA " + PlatformDependent.usedDirectMemory());
         System.out.println("Allocated (2)(" + i + "): " + allocator.getAllocatedMemory());
         ColumnDescriptor col = colDesc.get(i);
+        System.out.println("DB" + PlatformDependent.usedDirectMemory());
         ColumnReader cr = colReader.getColumnReader(col);
+        System.out.println("DC" + PlatformDependent.usedDirectMemory());
         int dmax = col.getMaxDefinitionLevel();
         switch (col.getPrimitiveType().getPrimitiveTypeName()) {
           case INT32: {
+            System.out.println("EA" + PlatformDependent.usedDirectMemory());
             ValueVectorFiller<IntVector> filler = (vector, index) -> vector.setSafe(index, cr.getInteger());
+            System.out.println("EB" + PlatformDependent.usedDirectMemory());
             writeColumn(BaseFixedWidthVector::setNull, filler, IntVector.class, cr, dmax, vectors.get(i), total_rows, offset);
+            System.out.println("EC" + PlatformDependent.usedDirectMemory());
             break;
           }
           case INT64: {
@@ -288,8 +278,11 @@ public class ParquetToArrowConverter {
         rowsCount.set(i, rowsCount.get(i)+ total_rows);
         i++;
       }
+      System.out.println("CB " + PlatformDependent.usedDirectMemory());
       pageReadStore = reader.readNextRowGroup();
+      System.out.println("CC " + PlatformDependent.usedDirectMemory());
     }
+    System.out.println("D " + PlatformDependent.usedDirectMemory());
     return total_rows;
   }
 
