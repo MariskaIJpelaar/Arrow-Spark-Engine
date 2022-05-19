@@ -80,8 +80,9 @@ public class ParquetToArrowConverter {
     parquetSchema = null;
     arrowSchema = null;
     System.out.println("A: " + PlatformDependent.usedDirectMemory());
+    System.out.println("refcount 1: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getRefCount());
     vectorSchemaRoot.clear();
-    System.out.println("refcount: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getRefCount());
+    System.out.println("refcount 2: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getRefCount());
     System.out.println("B: " + PlatformDependent.usedDirectMemory());
     vectorSchemaRoot = null;
     allocator.releaseBytes(allocator.getAllocatedMemory());
