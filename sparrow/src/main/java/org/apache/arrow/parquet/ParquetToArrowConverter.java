@@ -42,10 +42,7 @@ import scala.reflect.io.Directory;
 import scala.reflect.io.File;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 
 /***
  * This class provides the necessary logic to convert a Parquet File into
@@ -62,6 +59,7 @@ public class ParquetToArrowConverter {
   private MessageType parquetSchema;
   public Schema arrowSchema;
   private VectorSchemaRoot vectorSchemaRoot;
+  private List<Integer> rowsCount = null;
 
   private List<Double> time = new ArrayList<>();
   private Long t0, t1, t2, t3, t4, t5, t6, t7 = 0L;
@@ -84,6 +82,15 @@ public class ParquetToArrowConverter {
     vectorSchemaRoot = null;
     allocator.releaseBytes(allocator.getAllocatedMemory());
     allocator.close();
+    configuration.clear();
+    rowsCount.clear();
+  }
+
+  private void setVectors() {
+    int n = vectorSchemaRoot.getFieldVectors().size();
+    for (int i = 0; i < n; ++i) {
+      vectorSchemaRoot.getVector(i).setValueCount(rowsCount.get(i));
+    }
   }
 
   public void prepareDirectory(Directory dir) {
@@ -137,6 +144,7 @@ public class ParquetToArrowConverter {
     SchemaMapping mapping = converter.fromParquet(parquetSchema);
     arrowSchema = mapping.getArrowSchema();
     vectorSchemaRoot = VectorSchemaRoot.create(arrowSchema, allocator);
+    rowsCount = new ArrayList<>(Collections.nCopies(vectorSchemaRoot.getFieldVectors().size(), 0));
     t5 = System.nanoTime();
     time.add((t5 - t4) / 1e9d);
 
@@ -153,6 +161,7 @@ public class ParquetToArrowConverter {
       }
     }).toStream().reduceOption(Integer::sum).getOrElse(() -> -1);
 
+    setVectors();
     vectorSchemaRoot.setRowCount(totalRows);
     t7 = System.nanoTime();
     if (t6 != null)
@@ -189,11 +198,13 @@ public class ParquetToArrowConverter {
     SchemaMapping mapping = converter.fromParquet(parquetSchema);
     arrowSchema = mapping.getArrowSchema();
     vectorSchemaRoot = VectorSchemaRoot.create(arrowSchema, allocator);
+    rowsCount = new ArrayList<>(Collections.nCopies(vectorSchemaRoot.getFieldVectors().size(), 0));
     t5 = System.nanoTime();
     time.add((t5 - t4) / 1e9d);
 
     int total_rows = Trivedi(reader, 0);
 
+    setVectors();
     vectorSchemaRoot.setRowCount(total_rows);
     t7 = System.nanoTime();
     time.add((t7 - t6) / 1e9d);
@@ -211,6 +222,7 @@ public class ParquetToArrowConverter {
     int size = colDesc.size();
     PageReadStore pageReadStore = reader.readNextRowGroup();
     int total_rows = 0;
+    System.out.println("Allocated: " + allocator.getAllocatedMemory());
     while (pageReadStore != null) {
       ColumnReadStoreImpl colReader =
               new ColumnReadStoreImpl(
@@ -223,6 +235,7 @@ public class ParquetToArrowConverter {
       total_rows = Math.max(total_rows, rows);
       int i = 0;
       while (i < size) {
+        System.out.println("Allocated (2)(" + i + "): " + allocator.getAllocatedMemory());
         ColumnDescriptor col = colDesc.get(i);
         ColumnReader cr = colReader.getColumnReader(col);
         int dmax = col.getMaxDefinitionLevel();
@@ -250,6 +263,7 @@ public class ParquetToArrowConverter {
           default:
             throw new Exception("Unsupported primitive type");
         }
+        rowsCount.set(i, rowsCount.get(i)+ total_rows);
         i++;
       }
       pageReadStore = reader.readNextRowGroup();
@@ -339,6 +353,6 @@ public class ParquetToArrowConverter {
       else nullFiller.setNullSafe(vector, i+offset);
       cr.consume();
     }
-    vector.setValueCount(rows);
+//    vector.setValueCount(rows);
   }
 }
