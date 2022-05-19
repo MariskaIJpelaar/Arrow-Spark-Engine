@@ -84,7 +84,7 @@ public class ParquetToArrowConverter {
       vec.getDataBuffer().getReferenceManager().release(refCount);
     }
     System.out.println("A2: " + PlatformDependent.usedDirectMemory());
-    vectorSchemaRoot.clear();
+//    vectorSchemaRoot.clear();
     System.out.println("B: " + PlatformDependent.usedDirectMemory());
     System.out.println("Size: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getSize());
     System.out.println("refcount 2: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getRefCount());
