@@ -81,15 +81,15 @@ public class ParquetToArrowConverter {
     System.out.println("refcount 1: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getRefCount());
     for (ValueVector vec : vectorSchemaRoot.getFieldVectors()) {
       int refCount = vec.getDataBuffer().getReferenceManager().getRefCount();
-      vec.getDataBuffer().getReferenceManager().release(refCount);
+      vec.getDataBuffer().getReferenceManager().release(refCount-1);
     }
     System.out.println("A2: " + PlatformDependent.usedDirectMemory());
-//    vectorSchemaRoot.clear();
+    vectorSchemaRoot.clear();
     System.out.println("B: " + PlatformDependent.usedDirectMemory());
     System.out.println("Size: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getSize());
     System.out.println("refcount 2: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getRefCount());
     System.out.println("C: " + PlatformDependent.usedDirectMemory());
-//    vectorSchemaRoot.close();
+    vectorSchemaRoot.close();
     System.out.println("D: " + PlatformDependent.usedDirectMemory());
     vectorSchemaRoot = null;
     allocator.releaseBytes(allocator.getAllocatedMemory());
