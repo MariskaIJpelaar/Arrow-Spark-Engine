@@ -18,6 +18,7 @@
 package org.apache.arrow.parquet;
 
 import io.netty.util.internal.PlatformDependent;
+import jdk.internal.org.objectweb.asm.tree.analysis.Value;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.parquet.utils.DumpGroupConverter;
 import org.apache.arrow.vector.*;
@@ -82,8 +83,14 @@ public class ParquetToArrowConverter {
     System.out.println("A: " + PlatformDependent.usedDirectMemory());
     System.out.println("refcount 1: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getRefCount());
     vectorSchemaRoot.clear();
-    System.out.println("refcount 2: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getRefCount());
     System.out.println("B: " + PlatformDependent.usedDirectMemory());
+    int refCount = vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getRefCount();
+    System.out.println("refcount 2: " + refCount);
+    for (ValueVector vec : vectorSchemaRoot.getFieldVectors()) {
+      refCount = vec.getDataBuffer().getReferenceManager().getRefCount();
+      vec.getDataBuffer().getReferenceManager().release(refCount);
+    }
+    System.out.println("C: " + PlatformDependent.usedDirectMemory());
     vectorSchemaRoot = null;
     allocator.releaseBytes(allocator.getAllocatedMemory());
     allocator.close();
