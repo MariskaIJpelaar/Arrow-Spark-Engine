@@ -98,6 +98,9 @@ object EvaluationSuite {
     intRDD.vectorMin()
     fw.write("SpArrow Compute Offloading: %04.3f\n".format((System.nanoTime()-start_sparrow_offload_compute)/1e9d))
     fw.flush()
+
+    // TODO: find automatic way
+    intRDD.data.foreach { vector => vector.close() }
   }
 
   def minimumValue(spark: SparkSession, sc: ArrowSparkContext, fw: FileWriter, file: String, numPart: Int) : Unit = {
@@ -129,6 +132,9 @@ object EvaluationSuite {
     intRDD.vectorMin()
     fw.write("SpArrow Compute Offloading: %04.3f\n".format((System.nanoTime()-start_sparrow_offload_compute)/1e9d))
     fw.flush()
+
+    // TODO: find automatic way
+    intRDD.data.foreach { vector => vector.close() }
   }
 
   def transformations(sc: ArrowSparkContext) : Unit = {
