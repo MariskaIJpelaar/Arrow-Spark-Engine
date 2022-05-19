@@ -79,7 +79,9 @@ public class ParquetToArrowConverter {
   public void clear() {
     parquetSchema = null;
     arrowSchema = null;
+    System.out.println("A: " + PlatformDependent.usedDirectMemory());
     vectorSchemaRoot.clear();
+    System.out.println("B: " + PlatformDependent.usedDirectMemory());
     vectorSchemaRoot = null;
     allocator.releaseBytes(allocator.getAllocatedMemory());
     allocator.close();
@@ -343,61 +345,15 @@ public class ParquetToArrowConverter {
 
 
   private <T extends ValueVector> void writeColumn(ValueVectorNullFiller<T> nullFiller, ValueVectorFiller<T> filler, Class<T> clazz, ColumnReader cr, int dmax, FieldVector v, int rows, int offset) {
-    long old = PlatformDependent.usedDirectMemory();
     T vector = clazz.cast(v);
-    long recent = PlatformDependent.usedDirectMemory();
-    if (recent != old) {
-      System.out.println("B " + PlatformDependent.usedDirectMemory());
-      old = recent;
-    }
     if (vector.getValueCapacity() < 1) {
-      recent = PlatformDependent.usedDirectMemory();
-      if (recent != old) {
-        System.out.println("C " + PlatformDependent.usedDirectMemory());
-        old = recent;
-      }
       vector.setInitialCapacity(rows);
-      recent = PlatformDependent.usedDirectMemory();
-      if (recent != old) {
-        System.out.println("D " + PlatformDependent.usedDirectMemory());
-        old = recent;
-      }
       vector.allocateNew();
-      recent = PlatformDependent.usedDirectMemory();
-      if (recent != old) {
-        System.out.println("E " + PlatformDependent.usedDirectMemory());
-        old = recent;
-      }
-    }
-    recent = PlatformDependent.usedDirectMemory();
-    if (recent != old) {
-      System.out.println("F " + PlatformDependent.usedDirectMemory());
-      old = recent;
     }
     for (int i = 0; i < rows; ++i) {
-      recent = PlatformDependent.usedDirectMemory();
-      if (recent != old) {
-        System.out.println("GA " + PlatformDependent.usedDirectMemory());
-        old = recent;
-      }
       if (cr.getCurrentDefinitionLevel() == dmax) filler.setSafe(vector, i+offset);
       else nullFiller.setNullSafe(vector, i+offset);
-      recent = PlatformDependent.usedDirectMemory();
-      if (recent != old) {
-        System.out.println("GB " + PlatformDependent.usedDirectMemory());
-        old = recent;
-      }
       cr.consume();
-      recent = PlatformDependent.usedDirectMemory();
-      if (recent != old) {
-        System.out.println("GC " + PlatformDependent.usedDirectMemory());
-        old = recent;
-      }
-    }
-    recent = PlatformDependent.usedDirectMemory();
-    if (recent != old) {
-      System.out.println("H " + PlatformDependent.usedDirectMemory());
-      old = recent;
     }
 //    vector.setValueCount(rows);
   }
