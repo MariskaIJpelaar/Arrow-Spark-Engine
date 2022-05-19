@@ -100,7 +100,8 @@ object EvaluationSuite {
     fw.flush()
 
     // TODO: find automatic way
-    intRDD.data.foreach { vector => vector.close() }
+    handler.getVectorSchemaRoot.clear()
+    intRDD.data.foreach { vector => vector.clear() }
   }
 
   def minimumValue(spark: SparkSession, sc: ArrowSparkContext, fw: FileWriter, file: String, numPart: Int) : Unit = {
@@ -134,7 +135,8 @@ object EvaluationSuite {
     fw.flush()
 
     // TODO: find automatic way
-    intRDD.data.foreach { vector => vector.close() }
+    handler.getVectorSchemaRoot.clear()
+    intRDD.data.foreach { vector => vector.clear() }
   }
 
   def transformations(sc: ArrowSparkContext) : Unit = {

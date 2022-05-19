@@ -80,6 +80,7 @@ public class ParquetToArrowConverter {
   public void clear() {
     parquetSchema = null;
     arrowSchema = null;
+    vectorSchemaRoot.clear();
     vectorSchemaRoot = null;
   }
 
