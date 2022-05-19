@@ -77,6 +77,8 @@ public class ParquetToArrowConverter {
   public void clear() {
     parquetSchema = null;
     arrowSchema = null;
+    //TODO: releasing as in the for-loop seems to correctly deallocate the vectors
+    // However, this provides trouble later...
     System.out.println("A: " + PlatformDependent.usedDirectMemory());
     System.out.println("refcount 1: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getRefCount());
     for (ValueVector vec : vectorSchemaRoot.getFieldVectors()) {
