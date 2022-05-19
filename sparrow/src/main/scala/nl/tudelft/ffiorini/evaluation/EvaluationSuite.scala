@@ -1,5 +1,6 @@
 package nl.tudelft.ffiorini.experiments
 
+import io.netty.util.internal.PlatformDependent
 import org.apache.arrow.parquet.ParquetToArrowConverter
 import org.apache.arrow.vector.ValueVector
 import org.apache.spark.ArrowSparkContext
@@ -68,6 +69,8 @@ object EvaluationSuite {
 //    val numPart = 10
     val tableName = "vanilla"
 
+    println(s"A ${PlatformDependent.usedDirectMemory()}")
+
     // Vanilla Spark
     val start_vanilla_read: Long = System.nanoTime()
     spark.read.format("parquet").option("mergeSchema", "true").option("dbtable", tableName)
@@ -81,12 +84,17 @@ object EvaluationSuite {
     fw.write("Vanilla Compute: %04.3f\n".format((System.nanoTime()-start_vanilla_compute)/1e9d))
     fw.flush()
 
+    println(s"B ${PlatformDependent.usedDirectMemory()}")
+
     // SpArrow
     val start_sparrow_read: Long = System.nanoTime()
     val handler = new ParquetToArrowConverter
     handler.process(dir)
+    println(s"C ${PlatformDependent.usedDirectMemory()}")
     val intArr = Array[ValueVector](handler.getIntVector.get())
+    println(s"D ${PlatformDependent.usedDirectMemory()}")
     val intRDD = sc.makeArrowRDD[Int](intArr, numPart)
+    println(s"E ${PlatformDependent.usedDirectMemory()}")
     fw.write("SpArrow Read: %04.3f\n".format((System.nanoTime()-start_sparrow_read)/1e9d))
     fw.flush()
     // TODO: not computed temporarily to save some time
@@ -96,12 +104,14 @@ object EvaluationSuite {
 //    fw.flush()
     val start_sparrow_offload_compute: Long = System.nanoTime()
     intRDD.vectorMin()
+    println(s"F ${PlatformDependent.usedDirectMemory()}")
     fw.write("SpArrow Compute Offloading: %04.3f\n".format((System.nanoTime()-start_sparrow_offload_compute)/1e9d))
     fw.flush()
 
     // TODO: find automatic way
     handler.clear()
     intRDD.data.foreach { vector => vector.clear() }
+    println(s"G ${PlatformDependent.usedDirectMemory()}")
   }
 
   def minimumValue(spark: SparkSession, sc: ArrowSparkContext, fw: FileWriter, file: String, numPart: Int) : Unit = {

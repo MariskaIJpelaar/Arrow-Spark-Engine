@@ -223,6 +223,7 @@ public class ParquetToArrowConverter {
     PageReadStore pageReadStore = reader.readNextRowGroup();
     int total_rows = 0;
     System.out.println("Allocated: " + allocator.getAllocatedMemory());
+
     while (pageReadStore != null) {
       ColumnReadStoreImpl colReader =
               new ColumnReadStoreImpl(
