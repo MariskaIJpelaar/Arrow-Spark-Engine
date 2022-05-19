@@ -217,16 +217,12 @@ public class ParquetToArrowConverter {
      *
      * In case a better alternative arises, it will be included here.
      * 03.05.2022: Function was adapted s.t. multiple parquet files can be supported */
-
-    System.out.println("A " + PlatformDependent.usedDirectMemory());
     t6 = System.nanoTime();
     List<ColumnDescriptor> colDesc = parquetSchema.getColumns();
     List<FieldVector> vectors = vectorSchemaRoot.getFieldVectors();
     int size = colDesc.size();
     PageReadStore pageReadStore = reader.readNextRowGroup();
     int total_rows = 0;
-    System.out.println("Allocated: " + allocator.getAllocatedMemory());
-    System.out.println("B " + PlatformDependent.usedDirectMemory());
 
     while (pageReadStore != null) {
       ColumnReadStoreImpl colReader =
@@ -235,26 +231,18 @@ public class ParquetToArrowConverter {
                       new DumpGroupConverter(),
                       parquetSchema,
                       reader.getFileMetaData().getCreatedBy());
-      System.out.println("CA " + PlatformDependent.usedDirectMemory());
 
       int rows = (int) pageReadStore.getRowCount();
       total_rows = Math.max(total_rows, rows);
       int i = 0;
       while (i < size) {
-        System.out.println("DA " + PlatformDependent.usedDirectMemory());
-        System.out.println("Allocated (2)(" + i + "): " + allocator.getAllocatedMemory());
         ColumnDescriptor col = colDesc.get(i);
-        System.out.println("DB" + PlatformDependent.usedDirectMemory());
         ColumnReader cr = colReader.getColumnReader(col);
-        System.out.println("DC" + PlatformDependent.usedDirectMemory());
         int dmax = col.getMaxDefinitionLevel();
         switch (col.getPrimitiveType().getPrimitiveTypeName()) {
           case INT32: {
-            System.out.println("EA" + PlatformDependent.usedDirectMemory());
             ValueVectorFiller<IntVector> filler = (vector, index) -> vector.setSafe(index, cr.getInteger());
-            System.out.println("EB" + PlatformDependent.usedDirectMemory());
             writeColumn(BaseFixedWidthVector::setNull, filler, IntVector.class, cr, dmax, vectors.get(i), total_rows, offset);
-            System.out.println("EC" + PlatformDependent.usedDirectMemory());
             break;
           }
           case INT64: {
@@ -278,11 +266,8 @@ public class ParquetToArrowConverter {
         rowsCount.set(i, rowsCount.get(i)+ total_rows);
         i++;
       }
-      System.out.println("CB " + PlatformDependent.usedDirectMemory());
       pageReadStore = reader.readNextRowGroup();
-      System.out.println("CC " + PlatformDependent.usedDirectMemory());
     }
-    System.out.println("D " + PlatformDependent.usedDirectMemory());
     return total_rows;
   }
 
@@ -358,16 +343,26 @@ public class ParquetToArrowConverter {
 
 
   private <T extends ValueVector> void writeColumn(ValueVectorNullFiller<T> nullFiller, ValueVectorFiller<T> filler, Class<T> clazz, ColumnReader cr, int dmax, FieldVector v, int rows, int offset) {
+    System.out.println("A " + PlatformDependent.usedDirectMemory());
     T vector = clazz.cast(v);
+    System.out.println("B " + PlatformDependent.usedDirectMemory());
     if (vector.getValueCapacity() < 1) {
+      System.out.println("C " + PlatformDependent.usedDirectMemory());
       vector.setInitialCapacity(rows);
+      System.out.println("D " + PlatformDependent.usedDirectMemory());
       vector.allocateNew();
+      System.out.println("E " + PlatformDependent.usedDirectMemory());
     }
+    System.out.println("F " + PlatformDependent.usedDirectMemory());
     for (int i = 0; i < rows; ++i) {
+      System.out.println("GA " + PlatformDependent.usedDirectMemory());
       if (cr.getCurrentDefinitionLevel() == dmax) filler.setSafe(vector, i+offset);
       else nullFiller.setNullSafe(vector, i+offset);
+      System.out.println("GB " + PlatformDependent.usedDirectMemory());
       cr.consume();
+      System.out.println("GC " + PlatformDependent.usedDirectMemory());
     }
+    System.out.println("H " + PlatformDependent.usedDirectMemory());
 //    vector.setValueCount(rows);
   }
 }
