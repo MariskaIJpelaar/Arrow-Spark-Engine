@@ -18,7 +18,6 @@
 package org.apache.arrow.parquet;
 
 import io.netty.util.internal.PlatformDependent;
-import jdk.internal.org.objectweb.asm.tree.analysis.Value;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.parquet.utils.DumpGroupConverter;
 import org.apache.arrow.vector.*;
@@ -37,9 +36,7 @@ import org.apache.parquet.column.page.PageReadStore;
 import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.util.HadoopInputFile;
 import org.apache.parquet.schema.MessageType;
-import org.apache.spark.network.protocol.Encoders;
 import scala.collection.Iterator;
-import scala.math.Numeric;
 import scala.reflect.io.Directory;
 import scala.reflect.io.File;
 
@@ -84,7 +81,7 @@ public class ParquetToArrowConverter {
     System.out.println("refcount 1: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getRefCount());
     vectorSchemaRoot.clear();
     System.out.println("B: " + PlatformDependent.usedDirectMemory());
-//    System.out.println("Size: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getSize());
+    System.out.println("Size: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getSize());
     System.out.println("refcount 2: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getRefCount());
 //    for (ValueVector vec : vectorSchemaRoot.getFieldVectors()) {
 //      refCount = vec.getDataBuffer().getReferenceManager().getRefCount();
