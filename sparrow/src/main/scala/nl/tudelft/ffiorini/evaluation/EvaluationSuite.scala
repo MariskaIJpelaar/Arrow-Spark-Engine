@@ -100,7 +100,7 @@ object EvaluationSuite {
     fw.flush()
 
     // TODO: find automatic way
-    handler.getVectorSchemaRoot.clear()
+    handler.clear()
     intRDD.data.foreach { vector => vector.clear() }
   }
 
@@ -135,7 +135,7 @@ object EvaluationSuite {
     fw.flush()
 
     // TODO: find automatic way
-    handler.getVectorSchemaRoot.clear()
+    handler.clear()
     intRDD.data.foreach { vector => vector.clear() }
   }
 

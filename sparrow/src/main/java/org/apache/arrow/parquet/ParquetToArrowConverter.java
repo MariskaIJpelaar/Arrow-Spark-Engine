@@ -82,6 +82,7 @@ public class ParquetToArrowConverter {
     arrowSchema = null;
     vectorSchemaRoot.clear();
     vectorSchemaRoot = null;
+    allocator.close();
   }
 
   public void prepareDirectory(Directory dir) {
