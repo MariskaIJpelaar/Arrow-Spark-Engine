@@ -86,6 +86,8 @@ private [spark] class ArrowRDD[T: ClassTag](@transient sc: SparkContext,
     println(s"vectorMin C: ${this.data.apply(0).getDataBuffer.getReferenceManager.getRefCount}")
     val parts = iterator.map(x => x.asInstanceOf[ArrowPartition].min())
     println(s"vectorMin D: ${this.data.apply(0).getDataBuffer.getReferenceManager.getRefCount}")
+    partitions.foreach { partition => partition.asInstanceOf[ArrowPartition].getVectors.foreach { vector => vector.clear()} }
+    println(s"vectorMin E: ${this.data.apply(0).getDataBuffer.getReferenceManager.getRefCount}")
     parts.min
   }
 }
