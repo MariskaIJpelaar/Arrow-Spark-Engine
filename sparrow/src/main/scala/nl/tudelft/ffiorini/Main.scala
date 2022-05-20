@@ -106,7 +106,6 @@ class Main extends Callable[Unit] {
        * Run the actual experiments
        */
       0 until nr_runs foreach { _ =>
-        println(s"${PlatformDependent.usedDirectMemory}")
         if (data_dir != "")
           EvaluationSuite.minimumValue(spark, sc, fw, Directory(data_dir), num_part)
         else if (data_file != "")

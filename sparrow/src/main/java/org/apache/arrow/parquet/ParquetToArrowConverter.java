@@ -340,19 +340,15 @@ public class ParquetToArrowConverter {
 
 
   private <T extends ValueVector> void writeColumn(ValueVectorNullFiller<T> nullFiller, ValueVectorFiller<T> filler, Class<T> clazz, ColumnReader cr, int dmax, FieldVector v, int rows, int offset) {
-    System.out.println("refcount writeColumn() A: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getRefCount());
     T vector = clazz.cast(v);
     if (vector.getValueCapacity() < 1) {
       vector.setInitialCapacity(rows);
       vector.allocateNew();
     }
-    System.out.println("refcount writeColumn() B: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getRefCount());
     for (int i = 0; i < rows; ++i) {
       if (cr.getCurrentDefinitionLevel() == dmax) filler.setSafe(vector, i+offset);
       else nullFiller.setNullSafe(vector, i+offset);
       cr.consume();
     }
-    System.out.println("refcount writeColumn() C: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getRefCount());
-//    vector.setValueCount(rows);
   }
 }
