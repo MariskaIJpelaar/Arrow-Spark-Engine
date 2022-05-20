@@ -78,22 +78,12 @@ public class ParquetToArrowConverter {
   public void clear() {
     parquetSchema = null;
     arrowSchema = null;
-    //TODO: releasing as in the for-loop seems to correctly deallocate the vectors
-    // However, this provides trouble later...
-    System.out.println("A: " + PlatformDependent.usedDirectMemory());
-    System.out.println("refcount 1: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getRefCount());
 //    for (ValueVector vec : vectorSchemaRoot.getFieldVectors()) {
 //      int refCount = vec.getDataBuffer().getReferenceManager().getRefCount();
 //      vec.getDataBuffer().getReferenceManager().release(refCount);
 //    }
-    System.out.println("A2: " + PlatformDependent.usedDirectMemory());
     vectorSchemaRoot.clear();
-    System.out.println("B: " + PlatformDependent.usedDirectMemory());
-    System.out.println("Size: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getSize());
-    System.out.println("refcount 2: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getRefCount());
-    System.out.println("C: " + PlatformDependent.usedDirectMemory());
     vectorSchemaRoot.close();
-    System.out.println("D: " + PlatformDependent.usedDirectMemory());
     vectorSchemaRoot = null;
     allocator.releaseBytes(allocator.getAllocatedMemory());
     allocator.close();
@@ -106,7 +96,6 @@ public class ParquetToArrowConverter {
     for (int i = 0; i < n; ++i) {
       vectorSchemaRoot.getVector(i).setValueCount(rowsCount.get(i));
     }
-    System.out.println("refcount setVectors(): " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getRefCount());
   }
 
   public void prepareDirectory(Directory dir) {
@@ -160,7 +149,6 @@ public class ParquetToArrowConverter {
     SchemaMapping mapping = converter.fromParquet(parquetSchema);
     arrowSchema = mapping.getArrowSchema();
     vectorSchemaRoot = VectorSchemaRoot.create(arrowSchema, allocator);
-    System.out.println("refcount process() A: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getRefCount());
     rowsCount = new ArrayList<>(Collections.nCopies(vectorSchemaRoot.getFieldVectors().size(), 0));
     t5 = System.nanoTime();
     time.add((t5 - t4) / 1e9d);
@@ -170,21 +158,16 @@ public class ParquetToArrowConverter {
       try {
         HadoopInputFile inputFile = HadoopInputFile.fromPath(new Path(file.path()), configuration);
         ParquetFileReader reader = ParquetFileReader.open(inputFile);
-        System.out.println("refcount process() B: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getRefCount());
         int ret = Trivedi(reader, offset[0]);
-        System.out.println("refcount process() C: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getRefCount());
         offset[0] += ret;
         return ret;
       } catch (Exception e) {
         throw new RuntimeException(e);
       }
     }).toStream().reduceOption(Integer::sum).getOrElse(() -> -1);
-    System.out.println("refcount process() D: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getRefCount());
 
     setVectors();
-    System.out.println("refcount process() E: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getRefCount());
     vectorSchemaRoot.setRowCount(totalRows);
-    System.out.println("refcount process() F: " + vectorSchemaRoot.getVector(0).getDataBuffer().getReferenceManager().getRefCount());
     t7 = System.nanoTime();
     if (t6 != null)
       time.add((t7 - t6) / 1e9d);

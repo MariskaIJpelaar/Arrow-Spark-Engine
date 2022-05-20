@@ -85,11 +85,8 @@ object EvaluationSuite {
     val start_sparrow_read: Long = System.nanoTime()
     val handler = new ParquetToArrowConverter
     handler.process(dir)
-    println(s"EvaluationSuite A: ${handler.getVectorSchemaRoot.getVector(0).getDataBuffer.getReferenceManager.getRefCount}")
     val intArr = Array[ValueVector](handler.getIntVector.get())
-    println(s"EvaluationSuite B: ${handler.getVectorSchemaRoot.getVector(0).getDataBuffer.getReferenceManager.getRefCount}")
     val intRDD = sc.makeArrowRDD[Int](intArr, numPart)
-    println(s"EvaluationSuite C: : ${handler.getVectorSchemaRoot.getVector(0).getDataBuffer.getReferenceManager.getRefCount}")
     fw.write("SpArrow Read: %04.3f\n".format((System.nanoTime()-start_sparrow_read)/1e9d))
     fw.flush()
     // TODO: not computed temporarily to save some time
@@ -99,7 +96,6 @@ object EvaluationSuite {
 //    fw.flush()
     val start_sparrow_offload_compute: Long = System.nanoTime()
     intRDD.vectorMin()
-    println(s"EvaluationSuite D: ${handler.getVectorSchemaRoot.getVector(0).getDataBuffer.getReferenceManager.getRefCount}")
     fw.write("SpArrow Compute Offloading: %04.3f\n".format((System.nanoTime()-start_sparrow_offload_compute)/1e9d))
     fw.flush()
 
