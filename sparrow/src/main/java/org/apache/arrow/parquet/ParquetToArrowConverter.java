@@ -78,16 +78,9 @@ public class ParquetToArrowConverter {
   public void clear() {
     parquetSchema = null;
     arrowSchema = null;
-//    for (ValueVector vec : vectorSchemaRoot.getFieldVectors()) {
-//      int refCount = vec.getDataBuffer().getReferenceManager().getRefCount();
-//      vec.getDataBuffer().getReferenceManager().release(refCount);
-//    }
     vectorSchemaRoot.clear();
-    vectorSchemaRoot.close();
     vectorSchemaRoot = null;
-    allocator.releaseBytes(allocator.getAllocatedMemory());
     allocator.close();
-    configuration.clear();
     rowsCount.clear();
   }
 
