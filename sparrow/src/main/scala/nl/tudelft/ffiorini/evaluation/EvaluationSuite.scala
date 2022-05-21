@@ -100,9 +100,10 @@ object EvaluationSuite {
     val start_sparrow_default_compute: Long = System.nanoTime()
     intRDD.min()
 
-    // TODO: ungly but might work...
+    // TODO: ugly but might work...
     refCounts.indices foreach { i =>
-      handler.getVectorSchemaRoot.getVector(i).getDataBuffer.getReferenceManager.release(refCounts(i))
+      val refManager = handler.getVectorSchemaRoot.getVector(i).getDataBuffer.getReferenceManager
+      refManager.release(refManager.getRefCount - refCounts(i))
     }
 
     println(s"ref D: ${handler.getVectorSchemaRoot.getVector(0).getDataBuffer.getReferenceManager.getRefCount}")
