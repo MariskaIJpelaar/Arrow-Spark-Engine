@@ -1,5 +1,6 @@
 package nl.tudelft.ffiorini.experiments
 
+import io.netty.util.internal.PlatformDependent
 import org.apache.arrow.parquet.ParquetToArrowConverter
 import org.apache.arrow.vector.ValueVector
 import org.apache.spark.ArrowSparkContext
@@ -85,21 +86,28 @@ object EvaluationSuite {
     val start_sparrow_read: Long = System.nanoTime()
     val handler = new ParquetToArrowConverter
     handler.process(dir)
+    println(s"ref A: ${handler.getVectorSchemaRoot.getVector(0).getDataBuffer.getReferenceManager.getRefCount}")
     val intArr = Array[ValueVector](handler.getIntVector.get())
+    println(s"ref B: ${handler.getVectorSchemaRoot.getVector(0).getDataBuffer.getReferenceManager.getRefCount}")
     val intRDD = sc.makeArrowRDD[Int](intArr, numPart)
+    println(s"ref C: ${handler.getVectorSchemaRoot.getVector(0).getDataBuffer.getReferenceManager.getRefCount}")
     fw.write("SpArrow Read: %04.3f\n".format((System.nanoTime()-start_sparrow_read)/1e9d))
     fw.flush()
     val start_sparrow_default_compute: Long = System.nanoTime()
     intRDD.min()
+    println(s"ref D: ${handler.getVectorSchemaRoot.getVector(0).getDataBuffer.getReferenceManager.getRefCount}")
     fw.write("SpArrow Compute Default: %04.3f\n".format((System.nanoTime()-start_sparrow_default_compute)/1e9d))
     fw.flush()
     val start_sparrow_offload_compute: Long = System.nanoTime()
     intRDD.vectorMin()
+    println(s"ref E: ${handler.getVectorSchemaRoot.getVector(0).getDataBuffer.getReferenceManager.getRefCount}")
     fw.write("SpArrow Compute Offloading: %04.3f\n".format((System.nanoTime()-start_sparrow_offload_compute)/1e9d))
     fw.flush()
 
     // TODO: find automatic way
+    println(s"before clear ${PlatformDependent.usedDirectMemory()}")
     handler.clear()
+    println(s"after clear ${PlatformDependent.usedDirectMemory()}")
     intRDD.data.foreach { vector => vector.clear() }
   }
 
