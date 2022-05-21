@@ -93,8 +93,18 @@ object EvaluationSuite {
     println(s"ref C: ${handler.getVectorSchemaRoot.getVector(0).getDataBuffer.getReferenceManager.getRefCount}")
     fw.write("SpArrow Read: %04.3f\n".format((System.nanoTime()-start_sparrow_read)/1e9d))
     fw.flush()
+    // TODO: ugly but might work...
+    val refCounts = handler.getVectorSchemaRoot.getFieldVectors.toArray().map( vector =>
+      vector.asInstanceOf[ValueVector].getDataBuffer.getReferenceManager.getRefCount)
+
     val start_sparrow_default_compute: Long = System.nanoTime()
     intRDD.min()
+
+    // TODO: ungly but might work...
+    refCounts.indices foreach { i =>
+      handler.getVectorSchemaRoot.getVector(i).getDataBuffer.getReferenceManager.release(refCounts(i))
+    }
+
     println(s"ref D: ${handler.getVectorSchemaRoot.getVector(0).getDataBuffer.getReferenceManager.getRefCount}")
     fw.write("SpArrow Compute Default: %04.3f\n".format((System.nanoTime()-start_sparrow_default_compute)/1e9d))
     fw.flush()
