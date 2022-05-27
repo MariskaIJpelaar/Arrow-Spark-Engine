@@ -43,16 +43,14 @@ case class PartitionedArrowFile(
 /**
  * An ArrowRDD that scans a list of file partitions
  * @param sparkSession the SparkSession associated with this RDD
- * @param numSlices the level of parallelism / no. of partitions of this RDD (default = 1)
  * @param readFunction function to read in a PartitionedArrowFile and convert it to an Iterator of Array[ValueVector]
  * @param filePartitions the partitions to operate on
  * @tparam T the RDD primitive data type (as defined by the Scala Standard)
  */
 class FileScanArrowRDD[T: ClassTag] (@transient private val sparkSession: SparkSession,
-                                     numSlices: Int,
                                      readFunction: PartitionedArrowFile => Iterator[Array[ValueVector]],
                                      @transient val filePartitions: Seq[ArrowFilePartition])
-                                     extends ArrowRDD[T](sparkSession.sparkContext, Array.empty, numSlices, Map.empty) {
+                                     extends ArrowRDD[T](sparkSession.sparkContext, Array.empty, 1, Map.empty) {
 
   private val ignoreCorruptFiles = sparkSession.sessionState.conf.ignoreCorruptFiles
   private val ignoreMissingFiles = sparkSession.sessionState.conf.ignoreMissingFiles
