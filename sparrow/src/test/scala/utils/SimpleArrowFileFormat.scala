@@ -28,27 +28,27 @@ class SimpleArrowFileFormat extends ArrowFileFormat with DataSourceRegister with
   /** Checks whether we can split the file: copied from arrow-spark::ArrowFileFormat */
   override def isSplitable(sparkSession: SparkSession, options: Map[String, String], path: Path): Boolean = false
 
-  private var schema: Option[Schema] = None
+//  private var schema: Option[Schema] = None
 
   override def inferSchema(sparkSession: SparkSession, options: Map[String, String], files: Seq[FileStatus]): Option[StructType] = {
-    var parquetSchema: Option[MessageType] = None
-    val filepaths = files.map( status => status.getPath )
-    filepaths.foreach( path => {
-      try {
-        val inputFile = HadoopInputFile.fromPath(path, new Configuration())
-        val reader = ParquetFileReader.open(inputFile)
-        if (parquetSchema.isEmpty) parquetSchema = Some(reader.getFileMetaData.getSchema)
-        else parquetSchema.get.union(reader.getFileMetaData.getSchema)
-      } catch {
-        case e: IOException =>
-          throw new RuntimeException(e)
-      }
-    })
-    if (parquetSchema.isDefined) {
-      val converter: SchemaConverter = new SchemaConverter()
-      val mapping: SchemaMapping = converter.fromParquet(parquetSchema.get)
-      schema = Some(mapping.getArrowSchema)
-    }
+//    var parquetSchema: Option[MessageType] = None
+//    val filepaths = files.map( status => status.getPath )
+//    filepaths.foreach( path => {
+//      try {
+//        val inputFile = HadoopInputFile.fromPath(path, new Configuration())
+//        val reader = ParquetFileReader.open(inputFile)
+//        if (parquetSchema.isEmpty) parquetSchema = Some(reader.getFileMetaData.getSchema)
+//        else parquetSchema.get.union(reader.getFileMetaData.getSchema)
+//      } catch {
+//        case e: IOException =>
+//          throw new RuntimeException(e)
+//      }
+//    })
+//    if (parquetSchema.isDefined) {
+//      val converter: SchemaConverter = new SchemaConverter()
+//      val mapping: SchemaMapping = converter.fromParquet(parquetSchema.get)
+//      schema = Some(mapping.getArrowSchema)
+//    }
 
     // TODO: get StructType
   }
@@ -62,14 +62,12 @@ class SimpleArrowFileFormat extends ArrowFileFormat with DataSourceRegister with
   /** Returns a function that can be used to read a single file in as an Iterator of Array[ValueVector] */
   override def buildArrowReaderWithPartitionValues(sparkSession: SparkSession, dataSchema: StructType, partitionSchema: StructType, requiredSchema: StructType, filters: Seq[Filter], options: Map[String, String], hadoopConf: Configuration): PartitionedArrowFile => Iterator[Array[ValueVector]] = {
     // TODO: implement
-    /** Note: we assume schema is set here */
-    val root = VectorSchemaRoot.create(schema.get, new RootAllocator(Integer.MAX_VALUE))
+//    val root = VectorSchemaRoot.create(schema.get, new RootAllocator(Integer.MAX_VALUE))
     (file: PartitionedArrowFile) => {
-      // TODO: per-file schema?
-      val decodedpath = URLDecoder.decode(file.filePath, "UTF-8")
-      val inputFile = HadoopInputFile.fromPath(new Path(decodedpath), new Configuration())
-      val reader = ParquetFileReader.open(inputFile)
-      // TODO: per-file root?
+      val inputFile = HadoopInputFile.fromPath(new Path(URLDecoder.decode(file.filePath, "UTF-8")), new Configuration())
+      val parquetSchema = ParquetFileReader.open(inputFile).getFileMetaData.getSchema
+      val converter: SchemaConverter = new SchemaConverter()
+      val root = VectorSchemaRoot.create(converter.fromParquet(parquetSchema).getArrowSchema, new RootAllocator(Integer.MAX_VALUE))
       // TODO: set iterator
       val itr: Iterator[ArrowRecordBatch] = null
       itr.foreach( batch => new VectorLoader(root).load(batch))
