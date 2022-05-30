@@ -124,8 +124,6 @@ class ArrowScanExec(@transient relation: HadoopFsRelation,
   @transient lazy val selectedArrowPartitions: Array[PartitionArrowDirectory] = {
     val optimizerMetadataTimeNs = relation.location.metadataOpsTimeNs.getOrElse(0L)
     val startTime = System.nanoTime()
-    // TODO: change relation.location to something with PartitionArrowDirectory
-    // perhaps this requires us to define our own relation-type?
     val ret =
       relation.location.listFiles(
         partitionFilters.filterNot(isDynamicPruningFilter), dataFilters)
@@ -133,7 +131,7 @@ class ArrowScanExec(@transient relation: HadoopFsRelation,
     val timeTakenMs = NANOSECONDS.toMillis(
       (System.nanoTime() - startTime) + optimizerMetadataTimeNs)
     driverMetrics("metadataTime") = timeTakenMs
-    ret
+    ret.asInstanceOf[Seq[PartitionArrowDirectory]]
   }.toArray
 
   // copied and edited from org/apache/spark/sql/execution/DataSourceScanExec.scala
@@ -154,8 +152,8 @@ class ArrowScanExec(@transient relation: HadoopFsRelation,
           BoundReference(index, partitionColumns(index).dataType, nullable = true)
       }, Nil)
       // TODO: Change predicate?
-      val ret = selectedArrowPartitions.filter(p => boundPredicate.eval(p.values))
-      setFilesNumAndSizeMetric(ret, false)
+      val ret = selectedArrowPartitions.filter(p => boundPredicate.eval(p.values.asInstanceOf[InternalRow]))
+      setFilesNumAndSizeMetric(ret.toSeq.asInstanceOf[Seq[PartitionDirectory]], false)
       val timeTakenMs = (System.nanoTime() - startTime) / 1000 / 1000
       driverMetrics("pruningTime") = timeTakenMs
       ret
