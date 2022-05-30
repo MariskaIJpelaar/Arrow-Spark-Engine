@@ -15,7 +15,7 @@ class ArrowReaderIterator(protected val delegate: Iterator[ArrowRecordBatch], pr
     val batch: ArrowRecordBatch = delegate.next()
     val root = VectorSchemaRoot.create(schema, rootAllocator)
     new VectorLoader(root).load(batch)
-    root.getFieldVectors.asInstanceOf[Seq[ValueVector]].toArray
+    root.getFieldVectors.asInstanceOf[List[ValueVector]].toArray
   }
 }
 
