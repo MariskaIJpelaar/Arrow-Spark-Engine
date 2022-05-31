@@ -2,9 +2,30 @@ package org.apache.spark.sql.execution
 
 import org.apache.arrow.vector.ValueVector
 import org.apache.hadoop.fs.{BlockLocation, FileStatus, LocatedFileStatus, Path}
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.execution.datasources.PartitionedArrowFile
 
 object ArrowPartitionedFileUtil {
+
+  // copied from org/apache/spark/sql/execution/PartitionedFileUtil
+  def splitFiles(
+      sparkSession: SparkSession,
+      file: FileStatus,
+      filePath: Path,
+      isSplitable: Boolean,
+      maxSplitBytes: Long,
+      partitionValues: Array[ValueVector]): Seq[PartitionedArrowFile] = {
+    if (isSplitable) {
+      (0L until file.getLen by maxSplitBytes).map { offset =>
+        val remaining = file.getLen - offset
+        val size = if (remaining > maxSplitBytes) maxSplitBytes else remaining
+        val hosts = getBlockHosts(getBlockLocations(file), offset, size)
+        PartitionedArrowFile(partitionValues, filePath.toUri.toString, offset, size, hosts)
+      }
+    } else {
+      Seq(getPartitionedFile(file, filePath, partitionValues))
+    }
+  }
 
   // copied from org/apache/spark/sql/execution/PartitionedFileUtil
   private def getBlockLocations(file: FileStatus): Array[BlockLocation] = file match {

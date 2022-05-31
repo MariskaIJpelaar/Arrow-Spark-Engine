@@ -3,16 +3,14 @@ package org.apache.spark.sql.execution
 import org.apache.arrow.vector.ValueVector
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
+import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.catalyst.expressions.{And, Attribute, AttributeReference, BoundReference, Expression, PlanExpression, Predicate}
 import org.apache.spark.sql.catalyst.{InternalRow, TableIdentifier}
+import org.apache.spark.sql.catalyst.expressions.{And, Attribute, AttributeReference, BoundReference, Expression, PlanExpression, Predicate}
 import org.apache.spark.sql.execution.datasources._
-import org.apache.spark.sql.sources.Filter
+import org.apache.spark.sql.sources.{BaseRelation, Filter}
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.util.collection.BitSet
-
-import org.apache.spark.sql.execution.datasources.PartitionedArrowFile
 
 import java.util.concurrent.TimeUnit.NANOSECONDS
 import scala.collection.mutable
@@ -31,33 +29,66 @@ trait ArrowFileFormat extends FileFormat {
                                      hadoopConf: Configuration) : PartitionedArrowFile => Iterator[Array[ValueVector]]
 }
 
-class ArrowScanExec(@transient relation: HadoopFsRelation,
-                      output: Seq[Attribute],
-                      requiredSchema: StructType,
-                      partitionFilters: Seq[Expression],
-                      optionalBucketSet: Option[BitSet],
-                      optionalNumCoalescedBuckets: Option[Int],
-                      dataFilters: Seq[Expression],
-                      tableIdentifier: Option[TableIdentifier],
-                      disableBucketedScan: Boolean = false) extends FileSourceScanExec(relation,
-  output,
-  requiredSchema,
-  partitionFilters,
-  optionalBucketSet,
-  optionalNumCoalescedBuckets,
-  dataFilters,
-  tableIdentifier,
-  disableBucketedScan) {
+case class ArrowScanExec(fs: FileSourceScanExec) extends DataSourceScanExec with Logging {
 
   // copied from org/apache/spark/sql/execution/DataSourceScanExec.scala
   @transient
   private lazy val pushedDownFilters = {
-    val supportNestedPredicatePushdown = DataSourceUtils.supportNestedPredicatePushdown(relation)
-    dataFilters.flatMap(DataSourceStrategy.translateFilter(_, supportNestedPredicatePushdown))
+    val supportNestedPredicatePushdown = DataSourceUtils.supportNestedPredicatePushdown(fs.relation)
+    fs.dataFilters.flatMap(DataSourceStrategy.translateFilter(_, supportNestedPredicatePushdown))
   }
 
   // copied and edited from org/apache/spark/sql/execution/DataSourceScanExec.scala
   private def createFileScanArrowRDD[T: ClassTag](
+      readFunc: PartitionedArrowFile => Iterator[Array[ValueVector]],
+      selectedPartitions: Array[PartitionArrowDirectory],
+      fsRelation: HadoopFsRelation)
+      (implicit tag: TypeTag[T]) : FileScanArrowRDD[T] = {
+    val openCostInBytes = fsRelation.sparkSession.sessionState.conf.filesOpenCostInBytes
+    val maxSplitBytes = ArrowFilePartition.maxSplitBytes(fsRelation.sparkSession, selectedPartitions)
+    logInfo(s"Planning scan with bin packing, max size: $maxSplitBytes bytes, " +
+      s"open cost is considered as scanning $openCostInBytes bytes.")
+
+    // Filter files with bucket pruning if possible
+    val bucketingEnabled = fsRelation.sparkSession.sessionState.conf.bucketingEnabled
+    val shouldProcess: Path => Boolean = fs.optionalBucketSet match {
+      case Some(bucketSet) if bucketingEnabled =>
+        // Do not prune the file if bucket file name is invalid
+        filePath => BucketingUtils.getBucketId(filePath.getName).forall(bucketSet.get)
+      case _ =>
+        _ => true
+    }
+
+    val splitFiles = selectedPartitions.flatMap { partition =>
+      partition.files.flatMap { file =>
+        // getPath() is very expensive so we only want to call it once in this block:
+        val filePath = file.getPath
+
+        if (shouldProcess(filePath)) {
+          val isSplitable = fs.relation.fileFormat.isSplitable(
+            fs.relation.sparkSession, fs.relation.options, filePath)
+          ArrowPartitionedFileUtil.splitFiles(
+            sparkSession = fs.relation.sparkSession,
+            file = file,
+            filePath = filePath,
+            isSplitable = isSplitable,
+            maxSplitBytes = maxSplitBytes,
+            partitionValues = partition.values
+          )
+        } else {
+          Seq.empty
+        }
+      }
+    }.sortBy(_.length)(implicitly[Ordering[Long]].reverse)
+
+    val partitions =
+      ArrowFilePartition.getFilePartitions(fs.relation.sparkSession, splitFiles, maxSplitBytes)
+
+    new FileScanArrowRDD[T](fsRelation.sparkSession, readFunc, partitions)
+  }
+
+  // copied and edited from org/apache/spark/sql/execution/DataSourceScanExec.scala
+  private def createBucketFileScanArrowRDD[T: ClassTag](
       readFunc: PartitionedArrowFile => Iterator[Array[ValueVector]],
       numBuckets: Int,
       selectedPartitions: Array[PartitionArrowDirectory])
@@ -74,8 +105,8 @@ class ArrowScanExec(@transient relation: HadoopFsRelation,
           .getOrElse(throw new IllegalStateException(s"Invalid bucket file ${f.filePath}"))
       }
 
-    val prunedFilesGroupedToBuckets = if (optionalBucketSet.isDefined) {
-      val bucketSet = optionalBucketSet.get
+    val prunedFilesGroupedToBuckets = if (fs.optionalBucketSet.isDefined) {
+      val bucketSet = fs.optionalBucketSet.get
       filesGroupedToBuckets.filter {
         f => bucketSet.get(f._1)
       }
@@ -83,7 +114,7 @@ class ArrowScanExec(@transient relation: HadoopFsRelation,
       filesGroupedToBuckets
     }
 
-    val filePartitions = optionalNumCoalescedBuckets.map { numCoalescedBuckets =>
+    val filePartitions = fs.optionalNumCoalescedBuckets.map { numCoalescedBuckets =>
       logInfo(s"Coalescing to ${numCoalescedBuckets} buckets")
       val coalescedBuckets = prunedFilesGroupedToBuckets.groupBy(_._1 % numCoalescedBuckets)
       // Note: IntelliJ marks the asInstance as redundant, but it is required, please keep it there
@@ -99,7 +130,7 @@ class ArrowScanExec(@transient relation: HadoopFsRelation,
       }
     }
 
-    new FileScanArrowRDD[T](relation.sparkSession, readFunc, filePartitions)
+    new FileScanArrowRDD[T](fs.relation.sparkSession, readFunc, filePartitions)
   }
 
   // copied from org/apache/spark/sql/execution/DataSourceScanExec.scala
@@ -116,7 +147,7 @@ class ArrowScanExec(@transient relation: HadoopFsRelation,
                                         static: Boolean): Unit = {
     val filesNum = partitions.map(_.files.size.toLong).sum
     val filesSize = partitions.map(_.files.map(_.getLen).sum).sum
-    if (!static || !partitionFilters.exists(isDynamicPruningFilter)) {
+    if (!static || !fs.partitionFilters.exists(isDynamicPruningFilter)) {
       driverMetrics("numFiles") = filesNum
       driverMetrics("filesSize") = filesSize
     } else {
@@ -127,30 +158,31 @@ class ArrowScanExec(@transient relation: HadoopFsRelation,
 
   // copied and edited from org/apache/spark/sql/execution/DataSourceScanExec.scala
   @transient lazy val selectedArrowPartitions: Array[PartitionArrowDirectory] = {
-    val optimizerMetadataTimeNs = relation.location.metadataOpsTimeNs.getOrElse(0L)
+    val optimizerMetadataTimeNs = fs.relation.location.metadataOpsTimeNs.getOrElse(0L)
     val startTime = System.nanoTime()
     val ret =
-      relation.location.listFiles(
-        partitionFilters.filterNot(isDynamicPruningFilter), dataFilters)
+      fs.relation.location.listFiles(
+        fs.partitionFilters.filterNot(isDynamicPruningFilter), fs.dataFilters)
     setFilesNumAndSizeMetric(ret, true)
     val timeTakenMs = NANOSECONDS.toMillis(
       (System.nanoTime() - startTime) + optimizerMetadataTimeNs)
     driverMetrics("metadataTime") = timeTakenMs
-    ret.asInstanceOf[Seq[PartitionArrowDirectory]]
-  }.toArray
+    // TODO: make sure we can 'cast' PartitionDirectory to PartionArrowDirectory
+    ret.toArray.map( dir => dir.asInstanceOf[PartitionArrowDirectory] )
+  }
 
   // copied and edited from org/apache/spark/sql/execution/DataSourceScanExec.scala
   // We can only determine the actual partitions at runtime when a dynamic partition filter is
   // present. This is because such a filter relies on information that is only available at run
   // time (for instance the keys used in the other side of a join).
   @transient private lazy val dynamicallySelectedPartitions: Array[PartitionArrowDirectory] = {
-    val dynamicPartitionFilters = partitionFilters.filter(isDynamicPruningFilter)
+    val dynamicPartitionFilters = fs.partitionFilters.filter(isDynamicPruningFilter)
 
     if (dynamicPartitionFilters.nonEmpty) {
       val startTime = System.nanoTime()
       // call the file index for the files matching all filters except dynamic partition filters
       val predicate = dynamicPartitionFilters.reduce(And)
-      val partitionColumns = relation.partitionSchema
+      val partitionColumns = fs.relation.partitionSchema
       val boundPredicate = Predicate.create(predicate.transform {
         case a: AttributeReference =>
           val index = partitionColumns.indexWhere(a.name == _.name)
@@ -167,11 +199,26 @@ class ArrowScanExec(@transient relation: HadoopFsRelation,
     }
   }
 
-  override lazy val inputRDD: RDD[InternalRow] = {
-    val root: (PartitionedArrowFile) => Iterator[Array[ValueVector]] = relation.fileFormat.asInstanceOf[ArrowFileFormat].buildArrowReaderWithPartitionValues(
-      relation.sparkSession, relation.dataSchema, relation.partitionSchema, requiredSchema, pushedDownFilters,
-      relation.options,  relation.sparkSession.sessionState.newHadoopConfWithOptions(relation.options)
+  lazy val inputRDD: RDD[InternalRow] = {
+    val root: (PartitionedArrowFile) => Iterator[Array[ValueVector]] = fs.relation.fileFormat.asInstanceOf[ArrowFileFormat].buildArrowReaderWithPartitionValues(
+      fs.relation.sparkSession, fs.relation.dataSchema, fs.relation.partitionSchema, fs.requiredSchema, pushedDownFilters,
+      fs.relation.options,  fs.relation.sparkSession.sessionState.newHadoopConfWithOptions(fs.relation.options)
     )
-    createFileScanArrowRDD(root, relation.bucketSpec.get.numBuckets, dynamicallySelectedPartitions)
+    if (fs.bucketedScan)
+      createBucketFileScanArrowRDD(root, fs.relation.bucketSpec.get.numBuckets, dynamicallySelectedPartitions)
+    else
+      createFileScanArrowRDD(root, dynamicallySelectedPartitions, fs.relation)
   }
+
+  override def relation: BaseRelation = fs.relation
+
+  override def tableIdentifier: Option[TableIdentifier] = fs.tableIdentifier
+
+  override protected def metadata: Map[String, String] = fs.metadata
+
+  override def inputRDDs(): Seq[RDD[InternalRow]] = inputRDD :: Nil
+
+  override protected def doExecute(): RDD[InternalRow] = inputRDD
+
+  override def output: Seq[Attribute] = fs.output
 }

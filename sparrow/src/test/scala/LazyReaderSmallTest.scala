@@ -4,6 +4,7 @@ import org.apache.avro.generic.{GenericData, GenericRecordBuilder}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.parquet.hadoop.util.HadoopOutputFile
+import org.apache.spark.sql.util.SpArrowExtensionWrapper
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.{ArrowSparkContext, SparkConf}
 import org.scalatest.funsuite.AnyFunSuite
@@ -98,13 +99,15 @@ class LazyReaderSmallTest extends AnyFunSuite {
       .setMaster("local")
     val sc = new ArrowSparkContext(conf)
     sc.setLogLevel("ERROR")
-    val spark = SparkSession.builder.config(sc.getConf).getOrCreate()
+    val spark = SparkSession.builder.config(sc.getConf).withExtensions(SpArrowExtensionWrapper.injectArrowFileSourceStrategy).getOrCreate()
 
     // Construct DataFrame
     val df: DataFrame = spark.read.format("utils.SimpleArrowFileFormat").load(directory.path)
     // Perform ColumnarSort
     df.sort("numA", "numB")
-    df.explain()
+    df.explain(true)
+    df.explain("formatted")
+    df.explain("codegen")
 
     // Check if result is equal to our computed table
     checkAnswer(df.collect().asInstanceOf[Array[ValueVector]])

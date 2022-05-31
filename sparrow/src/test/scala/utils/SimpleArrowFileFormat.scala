@@ -29,8 +29,8 @@ class SimpleArrowFileFormat extends ArrowFileFormat with DataSourceRegister with
   override def prepareWrite(sparkSession: SparkSession, job: Job, options: Map[String, String], dataSchema: StructType): OutputWriterFactory =
     (new ParquetFileFormat).prepareWrite(sparkSession, job, options, dataSchema)
 
-  override def shortName(): String = "sparrow"
-  override def toString: String = "SpArrow"
+  override def shortName(): String = "simple-sparrow"
+  override def toString: String = "Simple-SpArrow-Format"
 
   /** Returns a function that can be used to read a single file in as an Iterator of Array[ValueVector] */
   override def buildArrowReaderWithPartitionValues(sparkSession: SparkSession, dataSchema: StructType, partitionSchema: StructType, requiredSchema: StructType, filters: Seq[Filter], options: Map[String, String], hadoopConf: Configuration): PartitionedArrowFile => Iterator[Array[ValueVector]] = {
