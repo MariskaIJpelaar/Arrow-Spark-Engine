@@ -12,9 +12,12 @@ import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.util.collection.BitSet
 
+import org.apache.spark.sql.execution.datasources.PartitionedArrowFile
+
 import java.util.concurrent.TimeUnit.NANOSECONDS
 import scala.collection.mutable
 import scala.reflect.ClassTag
+import scala.reflect.runtime.universe.TypeTag
 
 
 trait ArrowFileFormat extends FileFormat {
@@ -57,7 +60,8 @@ class ArrowScanExec(@transient relation: HadoopFsRelation,
   private def createFileScanArrowRDD[T: ClassTag](
       readFunc: PartitionedArrowFile => Iterator[Array[ValueVector]],
       numBuckets: Int,
-      selectedPartitions: Array[PartitionArrowDirectory]) : FileScanArrowRDD[T]  = {
+      selectedPartitions: Array[PartitionArrowDirectory])
+      (implicit tag: TypeTag[T]) : FileScanArrowRDD[T]  = {
     logInfo(s"Planning with ${numBuckets} buckets")
     val filesGroupedToBuckets =
       selectedPartitions.flatMap { p =>
@@ -82,10 +86,11 @@ class ArrowScanExec(@transient relation: HadoopFsRelation,
     val filePartitions = optionalNumCoalescedBuckets.map { numCoalescedBuckets =>
       logInfo(s"Coalescing to ${numCoalescedBuckets} buckets")
       val coalescedBuckets = prunedFilesGroupedToBuckets.groupBy(_._1 % numCoalescedBuckets)
+      // Note: IntelliJ marks the asInstance as redundant, but it is required, please keep it there
       Seq.tabulate(numCoalescedBuckets) { bucketId =>
         val partitionedFiles = coalescedBuckets.get(bucketId).map {
           _.values.flatten.toArray
-        }.getOrElse(Array.empty)
+        }.getOrElse(Array.empty).asInstanceOf[Array[org.apache.spark.sql.execution.datasources.PartitionedArrowFile]]
         ArrowFilePartition(bucketId, partitionedFiles)
       }
     }.getOrElse {
@@ -94,7 +99,7 @@ class ArrowScanExec(@transient relation: HadoopFsRelation,
       }
     }
 
-    new FileScanArrowRDD(relation.sparkSession, readFunc, filePartitions)
+    new FileScanArrowRDD[T](relation.sparkSession, readFunc, filePartitions)
   }
 
   // copied from org/apache/spark/sql/execution/DataSourceScanExec.scala

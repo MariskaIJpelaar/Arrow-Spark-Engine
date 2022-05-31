@@ -12,6 +12,7 @@ import org.apache.spark.{Partition, SparkUpgradeException, TaskContext}
 
 import java.io.{Closeable, FileNotFoundException, IOException}
 import scala.reflect.ClassTag
+import scala.reflect.runtime.universe._
 
 /**
  * Files to scan an ArrowRDD from a partitioned file
@@ -50,6 +51,7 @@ case class PartitionedArrowFile(
 class FileScanArrowRDD[T: ClassTag] (@transient private val sparkSession: SparkSession,
                                      readFunction: PartitionedArrowFile => Iterator[Array[ValueVector]],
                                      @transient val filePartitions: Seq[ArrowFilePartition])
+                                    (implicit tag: TypeTag[T])
                                      extends ArrowRDD[T](sparkSession.sparkContext, Array.empty, 1, Map.empty) {
 
   private val ignoreCorruptFiles = sparkSession.sessionState.conf.ignoreCorruptFiles
@@ -185,7 +187,6 @@ class FileScanArrowRDD[T: ClassTag] (@transient private val sparkSession: SparkS
         incTaskInputMetricsBytesRead()
         nextElement match {
           case vectors: Array[ValueVector] => inputMetrics.incRecordsRead(vectors.length)
-          case _ => _
         }
         nextElement
       }
