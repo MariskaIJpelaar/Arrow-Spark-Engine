@@ -105,9 +105,7 @@ class LazyReaderSmallTest extends AnyFunSuite {
     val df: DataFrame = spark.read.format("utils.SimpleArrowFileFormat").load(directory.path)
     // Perform ColumnarSort
     df.sort("numA", "numB")
-    df.explain(true)
     df.explain("formatted")
-    df.explain("codegen")
 
     // Check if result is equal to our computed table
     checkAnswer(df.collect().asInstanceOf[Array[ValueVector]])

@@ -9,11 +9,13 @@ import org.apache.hadoop.fs.Path
 import org.apache.parquet.ParquetReadOptions
 import org.apache.parquet.arrow.schema.SchemaConverter
 import org.apache.parquet.column.impl.ColumnReadStoreImpl
+import org.apache.parquet.format.converter.ParquetMetadataConverter
 import org.apache.parquet.hadoop.ParquetFileReader
 import org.apache.parquet.hadoop.util.HadoopInputFile
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName
-import org.apache.spark.sql.execution.datasources.PartitionedArrowFile
-import org.apache.parquet.format.converter.ParquetMetadataConverter
+import org.apache.spark.sql.execution.datasources.PartitionedFile
+
+import scala.collection.JavaConverters.asScalaBufferConverter
 
 /**
  * Note: currently only supports INT32 types
@@ -24,7 +26,7 @@ import org.apache.parquet.format.converter.ParquetMetadataConverter
  * Implementation of the Iterator is according to the ParquetToArrowConverter,
  * this converter in turn is according to:
  * https://gist.github.com/animeshtrivedi/76de64f9dab1453958e1d4f8eca1605f */
-class ParquetReaderIterator(protected val file: PartitionedArrowFile, protected val rootAllocator: RootAllocator) extends Iterator[Array[ValueVector]] {
+class ParquetReaderIterator(protected val file: PartitionedFile, protected val rootAllocator: RootAllocator) extends Iterator[Array[ValueVector]] {
   if (file.length > Integer.MAX_VALUE)
     throw new RuntimeException("[IntegerParquetReaderIterator] Partition is too large")
 
@@ -81,7 +83,7 @@ class ParquetReaderIterator(protected val file: PartitionedArrowFile, protected 
     pageReadStore = reader.readNextRowGroup()
 
     vectorSchemaRoot.setRowCount(rows)
-    vectorSchemaRoot.getFieldVectors.asInstanceOf[List[ValueVector]].toArray
+    vectorSchemaRoot.getFieldVectors.asInstanceOf[java.util.List[ValueVector]].asScala.toArray
   }
 }
 

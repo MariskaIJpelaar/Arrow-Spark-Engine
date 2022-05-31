@@ -22,26 +22,6 @@ import scala.reflect.runtime.universe._
  */
 
 /**
- * A part (i.e. "block") of a single file that should be read, along with partition column values that need to be
- * prepended to each row.
- * @param partitionValues value of partition columns to be prepended to each row.
- * @param filePath URI of the file to read
- * @param start the beginning offset (in bytes) of the block.
- * @param length number of bytes to read.
- * @param locations locality information (list of nodes that have the data).
- */
-case class PartitionedArrowFile(
-   partitionValues: Array[ValueVector],
-   filePath: String,
-   start: Long,
-   length: Long,
-   @transient locations: Array[String] = Array.empty) {
-  override def toString: String = {
-    s"path: $filePath, range: $start - ${start + length}, partition values: ${partitionValues.mkString("Array(", "; ", ")")}"
-  }
-}
-
-/**
  * An ArrowRDD that scans a list of file partitions
  * @param sparkSession the SparkSession associated with this RDD
  * @param readFunction function to read in a PartitionedArrowFile and convert it to an Iterator of Array[ValueVector]
@@ -49,8 +29,8 @@ case class PartitionedArrowFile(
  * @tparam T the RDD primitive data type (as defined by the Scala Standard)
  */
 class FileScanArrowRDD[T: ClassTag] (@transient private val sparkSession: SparkSession,
-                                     readFunction: PartitionedArrowFile => Iterator[Array[ValueVector]],
-                                     @transient val filePartitions: Seq[ArrowFilePartition])
+                                     readFunction: PartitionedFile => Iterator[Array[ValueVector]],
+                                     @transient val filePartitions: Seq[FilePartition])
                                     (implicit tag: TypeTag[T])
                                      extends ArrowRDD[T](sparkSession.sparkContext, Array.empty, 1, Map.empty) {
 
@@ -75,8 +55,8 @@ class FileScanArrowRDD[T: ClassTag] (@transient private val sparkSession: SparkS
         inputMetrics.setBytesRead(existingBytesRead + getBytesReadCallback())
       }
 
-      private[this] val files = split.asInstanceOf[ArrowFilePartition].files.toIterator
-      private[this] var currentFile: Option[PartitionedArrowFile] = None
+      private[this] val files = split.asInstanceOf[FilePartition].files.toIterator
+      private[this] var currentFile: Option[PartitionedFile] = None
       private[this] var currentIterator : Option[Iterator[Object]] = None
 
       private def resetCurrentIterator(): Unit = {
@@ -210,7 +190,7 @@ class FileScanArrowRDD[T: ClassTag] (@transient private val sparkSession: SparkS
   }
 
   override protected def getPreferredLocations(s: Partition): Seq[String] = {
-    s.asInstanceOf[ArrowFilePartition].preferredLocations()
+    s.asInstanceOf[FilePartition].preferredLocations()
   }
 
 
