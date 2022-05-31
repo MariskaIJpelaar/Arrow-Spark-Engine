@@ -13,6 +13,7 @@ import org.apache.parquet.format.converter.ParquetMetadataConverter
 import org.apache.parquet.hadoop.ParquetFileReader
 import org.apache.parquet.hadoop.util.HadoopInputFile
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName
+import org.apache.spark.rdd.ArrowPartition
 import org.apache.spark.sql.execution.datasources.PartitionedFile
 
 import scala.collection.JavaConverters.asScalaBufferConverter
@@ -26,7 +27,8 @@ import scala.collection.JavaConverters.asScalaBufferConverter
  * Implementation of the Iterator is according to the ParquetToArrowConverter,
  * this converter in turn is according to:
  * https://gist.github.com/animeshtrivedi/76de64f9dab1453958e1d4f8eca1605f */
-class ParquetReaderIterator(protected val file: PartitionedFile, protected val rootAllocator: RootAllocator) extends Iterator[Array[ValueVector]] {
+class ParquetReaderIterator(protected val file: PartitionedFile, protected val rootAllocator: RootAllocator,
+                            protected val rddId: Long) extends Iterator[ArrowPartition] {
   if (file.length > Integer.MAX_VALUE)
     throw new RuntimeException("[IntegerParquetReaderIterator] Partition is too large")
 
@@ -48,7 +50,7 @@ class ParquetReaderIterator(protected val file: PartitionedFile, protected val r
 
   override def hasNext: Boolean = pageReadStore != null
 
-  override def next(): Array[ValueVector] = {
+  override def next(): ArrowPartition = {
     if (!hasNext)
       throw new RuntimeException("[IntegerParquetReaderIterator] has no next")
 
@@ -83,7 +85,9 @@ class ParquetReaderIterator(protected val file: PartitionedFile, protected val r
     pageReadStore = reader.readNextRowGroup()
 
     vectorSchemaRoot.setRowCount(rows)
-    vectorSchemaRoot.getFieldVectors.asInstanceOf[java.util.List[ValueVector]].asScala.toArray
+    val data = vectorSchemaRoot.getFieldVectors.asInstanceOf[java.util.List[ValueVector]].asScala.toArray
+    // TODO: create an unique-reproducable ID for each slice
+    new ArrowPartition(rddId, slice, data)
   }
 }
 

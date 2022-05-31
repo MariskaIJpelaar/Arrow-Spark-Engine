@@ -103,6 +103,8 @@ class LazyReaderSmallTest extends AnyFunSuite {
 
     // Construct DataFrame
     val df: DataFrame = spark.read.format("utils.SimpleArrowFileFormat").load(directory.path)
+    df.explain("formatted")
+    df.first()
     // Perform ColumnarSort
     df.sort("numA", "numB")
     df.explain("formatted")

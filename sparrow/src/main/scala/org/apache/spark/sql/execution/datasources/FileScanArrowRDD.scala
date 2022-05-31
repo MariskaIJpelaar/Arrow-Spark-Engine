@@ -3,7 +3,7 @@ package org.apache.spark.sql.execution.datasources
 import org.apache.arrow.vector.ValueVector
 import org.apache.parquet.io.ParquetDecodingException
 import org.apache.spark.deploy.SparkHadoopUtil
-import org.apache.spark.rdd.{ArrowRDD, InputFileBlockHolder}
+import org.apache.spark.rdd.{ArrowPartition, ArrowRDD, InputFileBlockHolder}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.errors.QueryExecutionErrors
 import org.apache.spark.sql.execution.QueryExecutionException
@@ -29,7 +29,7 @@ import scala.reflect.runtime.universe._
  * @tparam T the RDD primitive data type (as defined by the Scala Standard)
  */
 class FileScanArrowRDD[T: ClassTag] (@transient private val sparkSession: SparkSession,
-                                     readFunction: PartitionedFile => Iterator[Array[ValueVector]],
+                                     readFunction: PartitionedFile => Iterator[ArrowPartition],
                                      @transient val filePartitions: Seq[FilePartition])
                                     (implicit tag: TypeTag[T])
                                      extends ArrowRDD[T](sparkSession.sparkContext, Array.empty, 1, Map.empty) {
@@ -70,7 +70,7 @@ class FileScanArrowRDD[T: ClassTag] (@transient private val sparkSession: SparkS
         currentIterator = None
       }
 
-      private def readCurrentFile(): Iterator[Array[ValueVector]] = {
+      private def readCurrentFile(): Iterator[ArrowPartition] = {
         try {
           readFunction(currentFile.get)
         } catch {
@@ -97,7 +97,7 @@ class FileScanArrowRDD[T: ClassTag] (@transient private val sparkSession: SparkS
             // The readFunction may read some bytes before consuming the iterator, e.g.,
             // vectorized Parquet reader. Here we use a lazily initialized variable to delay the
             // creation of iterator so that we will throw exception in `getNext`.
-            lazy private val internalIter: Iterator[Array[ValueVector]] = readCurrentFile()
+            lazy private val internalIter: Iterator[ArrowPartition] = readCurrentFile()
 
             override def getNext(): AnyRef = {
               try {

@@ -1,10 +1,10 @@
 package org.apache.spark.sql.execution
 
-import org.apache.arrow.vector.ValueVector
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
+import org.apache.spark.ArrowSparkContext
 import org.apache.spark.internal.Logging
-import org.apache.spark.rdd.RDD
+import org.apache.spark.rdd.{ArrowPartition, RDD}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.expressions.{And, Attribute, AttributeReference, BoundReference, Expression, PlanExpression, Predicate}
 import org.apache.spark.sql.catalyst.{InternalRow, TableIdentifier}
@@ -25,7 +25,8 @@ trait ArrowFileFormat extends FileFormat {
                                      requiredSchema: StructType,
                                      filters: Seq[Filter],
                                      options: Map[String, String],
-                                     hadoopConf: Configuration) : PartitionedFile => Iterator[Array[ValueVector]]
+                                     hadoopConf: Configuration,
+                                     rddId: Long) : PartitionedFile => Iterator[ArrowPartition]
 }
 
 case class ArrowScanExec(fs: FileSourceScanExec) extends DataSourceScanExec with Logging {
@@ -39,7 +40,7 @@ case class ArrowScanExec(fs: FileSourceScanExec) extends DataSourceScanExec with
 
   // copied and edited from org/apache/spark/sql/execution/DataSourceScanExec.scala
   private def createFileScanArrowRDD[T: ClassTag](
-      readFunc: PartitionedFile => Iterator[Array[ValueVector]],
+      readFunc: PartitionedFile => Iterator[ArrowPartition],
       selectedPartitions: Array[PartitionDirectory],
       fsRelation: HadoopFsRelation)
       (implicit tag: TypeTag[T]) : FileScanArrowRDD[T] = {
@@ -88,7 +89,7 @@ case class ArrowScanExec(fs: FileSourceScanExec) extends DataSourceScanExec with
 
   // copied and edited from org/apache/spark/sql/execution/DataSourceScanExec.scala
   private def createBucketFileScanArrowRDD[T: ClassTag](
-      readFunc: PartitionedFile => Iterator[Array[ValueVector]],
+      readFunc: PartitionedFile => Iterator[ArrowPartition],
       numBuckets: Int,
       selectedPartitions: Array[PartitionDirectory])
       (implicit tag: TypeTag[T]) : FileScanArrowRDD[T]  = {
@@ -183,9 +184,9 @@ case class ArrowScanExec(fs: FileSourceScanExec) extends DataSourceScanExec with
   }
 
   lazy val inputRDD: RDD[InternalRow] = {
-    val root: (PartitionedFile) => Iterator[Array[ValueVector]] = fs.relation.fileFormat.asInstanceOf[ArrowFileFormat].buildArrowReaderWithPartitionValues(
+    val root: (PartitionedFile) => Iterator[ArrowPartition] = fs.relation.fileFormat.asInstanceOf[ArrowFileFormat].buildArrowReaderWithPartitionValues(
       fs.relation.sparkSession, fs.relation.dataSchema, fs.relation.partitionSchema, fs.requiredSchema, pushedDownFilters,
-      fs.relation.options,  fs.relation.sparkSession.sessionState.newHadoopConfWithOptions(fs.relation.options)
+      fs.relation.options,  fs.relation.sparkSession.sessionState.newHadoopConfWithOptions(fs.relation.options), sparkContext.asInstanceOf[ArrowSparkContext].getCurrentRddId
     )
     if (fs.bucketedScan)
       createBucketFileScanArrowRDD(root, fs.relation.bucketSpec.get.numBuckets, dynamicallySelectedPartitions)

@@ -3,6 +3,7 @@ package org.apache.spark
 import org.apache.arrow.vector.ValueVector
 import org.apache.spark.rdd.{ArrowRDD, RDD}
 
+import java.util.concurrent.atomic.AtomicInteger
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 
@@ -30,4 +31,9 @@ class ArrowSparkContext(config: SparkConf) extends SparkContext(config) {
     assertNotStopped()
     rdd.asInstanceOf[ArrowRDD[T]]
   }
+
+  private val nextRddId = new AtomicInteger(0)
+  // TODO: may need a better method in the future
+  private[spark] def newRDDId(): Int = nextRddId.getAndIncrement()
+  def getCurrentRddId: Int = nextRddId.get()
 }
