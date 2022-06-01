@@ -509,3 +509,9 @@ class ArrowPartition extends Partition with Externalizable with Logging {
     else throw new SparkException("Function min() not yet implemented for this data type")
   }
 }
+
+// TODO: implement
+object ArrowPartition {
+  def encodePartition(iter: Iterator[ArrowPartition]): Iterator[(Long, Array[Byte])] = ???
+  def decodePartition(iter: Iterator[(Long, Array[Byte])]): Iterator[ArrowPartition] = ???
+}
