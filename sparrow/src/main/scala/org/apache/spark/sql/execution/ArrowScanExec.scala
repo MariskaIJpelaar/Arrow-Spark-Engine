@@ -1,9 +1,11 @@
 package org.apache.spark.sql.execution
 
+import org.apache.arrow.vector.ValueVector
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
-import org.apache.spark.ArrowSparkContext
+import org.apache.spark.{ArrowSparkContext, SparkEnv}
 import org.apache.spark.internal.Logging
+import org.apache.spark.io.CompressionCodec
 import org.apache.spark.rdd.{ArrowPartition, RDD}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.expressions.{And, Attribute, AttributeReference, BoundReference, Expression, PlanExpression, Predicate}
@@ -12,6 +14,7 @@ import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.sources.{BaseRelation, Filter}
 import org.apache.spark.sql.types.StructType
 
+import java.io.{ByteArrayOutputStream, DataOutputStream}
 import scala.collection.mutable
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeTag
@@ -30,6 +33,36 @@ trait ArrowFileFormat extends FileFormat {
 }
 
 case class ArrowScanExec(fs: FileSourceScanExec) extends DataSourceScanExec with Logging {
+
+  // TODO: implement similar to SparkPlan:[private]executeTake(n: Int, takeFromEnd: Boolean = false)
+  override def executeTake(n: Int): Array[InternalRow] = {
+    if (n == 0)
+      return new Array[Array[ValueVector]](0).asInstanceOf[Array[InternalRow]]
+
+    // Note: like getByteArrayRdd(...)
+    var childRDD = execute().mapPartitionsInternal { res =>
+      val iter: Iterator[ArrowPartition] = res.asInstanceOf[Iterator[ArrowPartition]]
+      var count = 0
+      val codec = CompressionCodec.createCodec(SparkEnv.get.conf)
+      val bos = new ByteArrayOutputStream()
+      val out = new DataOutputStream(codec.compressedOutputStream(bos))
+
+      while ((n < 0 || count < n) && iter.hasNext) {
+        // TODO: add some sort of size here
+        // TODO: fix function
+        iter.next().writeExternal(out)
+        count += 1
+      }
+
+      out.writeInt(-1)
+      out.flush()
+      out.close()
+      Iterator((count, bos.toByteArray))
+    }
+
+    // TODO: continue
+
+  }
 
   // copied from org/apache/spark/sql/execution/DataSourceScanExec.scala
   @transient
