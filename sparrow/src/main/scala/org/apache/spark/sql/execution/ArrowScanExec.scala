@@ -1,10 +1,9 @@
 package org.apache.spark.sql.execution
 
-import org.apache.arrow.vector.ValueVector
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
+import org.apache.spark.ArrowSparkContext
 import org.apache.spark.internal.Logging
-import org.apache.spark.io.CompressionCodec
 import org.apache.spark.rdd.{ArrowPartition, RDD}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.expressions.{And, Attribute, AttributeReference, BoundReference, Expression, PlanExpression, Predicate}
@@ -12,9 +11,7 @@ import org.apache.spark.sql.catalyst.{InternalRow, TableIdentifier}
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.sources.{BaseRelation, Filter}
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.{ArrowSparkContext, SparkEnv}
 
-import java.io.{ByteArrayOutputStream, ObjectOutputStream}
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
@@ -35,30 +32,39 @@ trait ArrowFileFormat extends FileFormat {
 
 case class ArrowScanExec(fs: FileSourceScanExec) extends DataSourceScanExec with Logging {
 
-  // TODO: implement similar to SparkPlan:[private]executeTake(n: Int, takeFromEnd: Boolean = false)
-  override def executeTake(n: Int): Array[InternalRow] = {
-    // TODO: make this function smaller!
-    // TODO: also, while --> for?
-    if (n == 0)
-      return new Array[Array[ValueVector]](0).asInstanceOf[Array[InternalRow]]
-
-    // Note: like getByteArrayRdd(...)
-    val childRDD = execute().mapPartitionsInternal { res =>
-      val iter: Iterator[ArrowPartition] = res.asInstanceOf[Iterator[ArrowPartition]]
-      var count: Long = 0
-      val codec = CompressionCodec.createCodec(SparkEnv.get.conf)
-      val bos = new ByteArrayOutputStream()
-      val oos = new ObjectOutputStream(codec.compressedOutputStream(bos))
-
-      while ((n < 0 || count < n) && iter.hasNext) {
-        iter.next().writeExternal(oos)
-        count += 1
+  // note: this function is directly copied from SparkPlan.executeTake(n, takeFromEnd)
+  private def determinePartsToScan(partsScanned: Int, bufEmpty: Boolean, n: Int, bufLen: Int, totalParts: Int): Range = {
+    // The number of partitions to try in this iteration. It is ok for this number to be
+    // greater than totalParts because we actually cap it at totalParts in runJob.
+    var numPartsToTry = 1L
+    if (partsScanned > 0) {
+      // If we didn't find any rows after the previous iteration, quadruple and retry.
+      // Otherwise, interpolate the number of partitions we need to try, but overestimate
+      // it by 50%. We also cap the estimation in the end.
+      val limitScaleUpFactor = Math.max(conf.limitScaleUpFactor, 2)
+      if (bufEmpty) {
+        numPartsToTry = partsScanned * limitScaleUpFactor
+      } else {
+        val left = n - bufLen
+        // As left > 0, numPartsToTry is always >= 1
+        numPartsToTry = Math.ceil(1.5 * left * partsScanned / bufLen).toInt
+        numPartsToTry = Math.min(numPartsToTry, partsScanned * limitScaleUpFactor)
       }
+    }
+    partsScanned.until(math.min(partsScanned + numPartsToTry, totalParts).toInt)
+  }
 
-      oos.writeInt(-1)
-      oos.flush()
-      oos.close()
-      Iterator((count, bos.toByteArray))
+  // Note: implemented similar to SparkPlan:[private]executeTake(n: Int, takeFromEnd: Boolean = false)
+  // TODO: implement own version of CollectLimitExec from limit.scala: org.apache.spark.sql.execution
+  // TODO: implement own version of SpecialLimits SparkStrategy from SparkStrategies.scala: org.apache.spark.sql.execution,
+  // check for this notes about extensions
+  // TODO: insert own version of SpecialLimits as extension
+  def executeTakeUntil(n: Int): Array[ArrowPartition] = {
+    if (n == 0)
+      return new Array[ArrowPartition](0)
+
+    val childRDD = execute().mapPartitionsInternal { res =>
+      ArrowPartition.encodePartition(n, res.asInstanceOf[Iterator[ArrowPartition]])
     }
 
     val buf = new ArrayBuffer[ArrowPartition]
@@ -67,32 +73,13 @@ case class ArrowScanExec(fs: FileSourceScanExec) extends DataSourceScanExec with
 
     // We either read until n, or until end of partitions
     while (buf.length < n && partsScanned < totalParts) {
-      // note: below is directly copied from SparkPlan.executeTake(n, takeFromEnd)
-      // The number of partitions to try in this iteration. It is ok for this number to be
-      // greater than totalParts because we actually cap it at totalParts in runJob.
-      var numPartsToTry = 1L
-      if (partsScanned > 0) {
-        // If we didn't find any rows after the previous iteration, quadruple and retry.
-        // Otherwise, interpolate the number of partitions we need to try, but overestimate
-        // it by 50%. We also cap the estimation in the end.
-        val limitScaleUpFactor = Math.max(conf.limitScaleUpFactor, 2)
-        if (buf.isEmpty) {
-          numPartsToTry = partsScanned * limitScaleUpFactor
-        } else {
-          val left = n - buf.length
-          // As left > 0, numPartsToTry is always >= 1
-          numPartsToTry = Math.ceil(1.5 * left * partsScanned / buf.length).toInt
-          numPartsToTry = Math.min(numPartsToTry, partsScanned * limitScaleUpFactor)
-        }
-      }
-      val partsToScan = partsScanned.until(math.min(partsScanned + numPartsToTry, totalParts).toInt)
+      val partsToScan = determinePartsToScan(partsScanned, buf.isEmpty, n, buf.length, totalParts)
       val res = sparkContext.runJob(childRDD, (it: Iterator[(Long, Array[Byte])]) =>
         if (it.hasNext) it.next() else (0L, Array.emptyByteArray), partsToScan)
 
       var i = 0
       while (buf.length < n && i < res.length) {
-        // TODO: re-create decodeUnsafeRows
-        val partitions: Iterator[ArrowPartition] = null
+        val partitions: Iterator[ArrowPartition] = ArrowPartition.decodePartitions(res(i)._2)
         // is this the last Partition?
         if (n - buf.length >= res(i)._1)
           buf ++= partitions.toArray[ArrowPartition]
@@ -102,7 +89,7 @@ case class ArrowScanExec(fs: FileSourceScanExec) extends DataSourceScanExec with
       }
       partsScanned += partsToScan.size
     }
-    buf.toArray.asInstanceOf[Array[InternalRow]]
+    buf.toArray
   }
 
   // copied from org/apache/spark/sql/execution/DataSourceScanExec.scala

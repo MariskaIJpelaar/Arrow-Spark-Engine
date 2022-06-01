@@ -4,10 +4,12 @@ import org.apache.arrow.memory.{BufferAllocator, RootAllocator}
 import org.apache.arrow.vector.types.Types.MinorType
 import org.apache.arrow.vector.util.Text
 import org.apache.arrow.vector.{BigIntVector, IntVector, StringVector, ValueVector, VarBinaryVector, VarCharVector, ZeroVector}
-import org.apache.spark.{Partition, SparkException}
+import org.apache.spark.{Partition, SparkEnv, SparkException}
 import org.apache.spark.internal.Logging
+import org.apache.spark.io.CompressionCodec
+import org.apache.spark.util.NextIterator
 
-import java.io.{Externalizable, ObjectInput, ObjectOutput}
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, Externalizable, ObjectInput, ObjectInputStream, ObjectOutput, ObjectOutputStream}
 import scala.reflect.{ClassTag, classTag}
 import scala.reflect.runtime.universe._
 
@@ -512,6 +514,44 @@ class ArrowPartition extends Partition with Externalizable with Logging {
 
 // TODO: implement
 object ArrowPartition {
-  def encodePartition(iter: Iterator[ArrowPartition]): Iterator[(Long, Array[Byte])] = ???
-  def decodePartition(iter: Iterator[(Long, Array[Byte])]): Iterator[ArrowPartition] = ???
+  // Note: similar to getByteArrayRdd(...)
+  def encodePartition(n: Int, iter: Iterator[ArrowPartition]): Iterator[(Long, Array[Byte])] = {
+    var count: Long = 0
+    val codec = CompressionCodec.createCodec(SparkEnv.get.conf)
+    val bos = new ByteArrayOutputStream()
+    val oos = new ObjectOutputStream(codec.compressedOutputStream(bos))
+
+    while ((n < 0 || count < n) && iter.hasNext) {
+      oos.writeInt(1)
+      iter.next().writeExternal(oos)
+      count += 1
+    }
+
+    oos.writeInt(0)
+    oos.flush()
+    oos.close()
+    Iterator((count, bos.toByteArray))
+  }
+
+  // Note: similar to decodeUnsafeRows
+  def decodePartitions(bytes: Array[Byte]): Iterator[ArrowPartition] = {
+    val codec = CompressionCodec.createCodec(SparkEnv.get.conf)
+    val bis = new ByteArrayInputStream(bytes)
+    val ois = new ObjectInputStream(codec.compressedInputStream(bis))
+
+    new NextIterator[ArrowPartition] {
+      override protected def getNext(): ArrowPartition = {
+        if (ois.readInt() == 0) {
+          finished = true
+          return null
+        }
+        val partition = new ArrowPartition()
+        partition.readExternal(ois)
+        partition
+      }
+
+      override protected def close(): Unit = ois.close()
+    }
+
+  }
 }
