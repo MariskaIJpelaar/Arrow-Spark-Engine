@@ -9,7 +9,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.ArrowPartition
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.execution.ArrowFileFormat
-import org.apache.spark.sql.execution.datasources.parquet.ParquetFileFormat
+import org.apache.spark.sql.execution.datasources.parquet.{ParquetFileFormat, ParquetUtils}
 import org.apache.spark.sql.execution.datasources.{OutputWriterFactory, PartitionedFile}
 import org.apache.spark.sql.sources.{DataSourceRegister, Filter}
 import org.apache.spark.sql.types.StructType
@@ -23,9 +23,8 @@ class SimpleArrowFileFormat extends ArrowFileFormat with DataSourceRegister with
   /** Checks whether we can split the file: copied from arrow-spark::ArrowFileFormat */
   override def isSplitable(sparkSession: SparkSession, options: Map[String, String], path: Path): Boolean = false
 
-  // TODO: reimplement at some point
-  override def inferSchema(sparkSession: SparkSession, options: Map[String, String], files: Seq[FileStatus]): Option[StructType] = Some(StructType.apply(Seq.empty))
-//    ParquetUtils.inferSchema(sparkSession, options, files)
+  override def inferSchema(sparkSession: SparkSession, options: Map[String, String], files: Seq[FileStatus]): Option[StructType] =
+    ParquetUtils.inferSchema(sparkSession, options, files)
 
 
   override def prepareWrite(sparkSession: SparkSession, job: Job, options: Map[String, String], dataSchema: StructType): OutputWriterFactory =

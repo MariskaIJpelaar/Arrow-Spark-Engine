@@ -1,6 +1,5 @@
 package org.apache.spark.sql.execution.datasources
 
-import org.apache.arrow.vector.ValueVector
 import org.apache.parquet.io.ParquetDecodingException
 import org.apache.spark.deploy.SparkHadoopUtil
 import org.apache.spark.rdd.{ArrowPartition, ArrowRDD, InputFileBlockHolder}
@@ -166,7 +165,7 @@ class FileScanArrowRDD[T: ClassTag] (@transient private val sparkSession: SparkS
         val nextElement = currentIterator.get.next()
         incTaskInputMetricsBytesRead()
         nextElement match {
-          case vectors: Array[ValueVector] => inputMetrics.incRecordsRead(vectors.length)
+          case partition: ArrowPartition => inputMetrics.incRecordsRead(partition.getLen)
         }
         nextElement
       }

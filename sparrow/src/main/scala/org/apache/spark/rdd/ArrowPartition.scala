@@ -32,6 +32,7 @@ class ArrowPartition extends Partition with Externalizable with Logging {
   private var _data : Array[ValueVector] = Array[ValueVector](new ZeroVector, new ZeroVector)
 
   private val _len = _data.length
+  def getLen: Int = _len
 
   def this(rddId : Long, slice : Int, data : Array[ValueVector]) = {
     this

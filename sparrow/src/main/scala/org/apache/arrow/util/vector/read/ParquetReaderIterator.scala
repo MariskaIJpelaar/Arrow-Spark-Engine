@@ -16,6 +16,7 @@ import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName
 import org.apache.spark.rdd.ArrowPartition
 import org.apache.spark.sql.execution.datasources.PartitionedFile
 
+import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.JavaConverters.asScalaBufferConverter
 
 /**
@@ -49,6 +50,8 @@ class ParquetReaderIterator(protected val file: PartitionedFile, protected val r
   private lazy val colDesc = parquetSchema.getColumns
 
   override def hasNext: Boolean = pageReadStore != null
+
+  private val sliceId = new AtomicInteger(0)
 
   override def next(): ArrowPartition = {
     if (!hasNext)
@@ -86,8 +89,7 @@ class ParquetReaderIterator(protected val file: PartitionedFile, protected val r
 
     vectorSchemaRoot.setRowCount(rows)
     val data = vectorSchemaRoot.getFieldVectors.asInstanceOf[java.util.List[ValueVector]].asScala.toArray
-    // TODO: create an unique-reproducable ID for each slice
-    new ArrowPartition(rddId, slice, data)
+    new ArrowPartition(rddId, sliceId.getAndIncrement(), data)
   }
 }
 

@@ -186,7 +186,7 @@ case class ArrowScanExec(fs: FileSourceScanExec) extends DataSourceScanExec with
   lazy val inputRDD: RDD[InternalRow] = {
     val root: (PartitionedFile) => Iterator[ArrowPartition] = fs.relation.fileFormat.asInstanceOf[ArrowFileFormat].buildArrowReaderWithPartitionValues(
       fs.relation.sparkSession, fs.relation.dataSchema, fs.relation.partitionSchema, fs.requiredSchema, pushedDownFilters,
-      fs.relation.options,  fs.relation.sparkSession.sessionState.newHadoopConfWithOptions(fs.relation.options), sparkContext.asInstanceOf[ArrowSparkContext].getCurrentRddId
+      fs.relation.options,  fs.relation.sparkSession.sessionState.newHadoopConfWithOptions(fs.relation.options), sparkContext.asInstanceOf[ArrowSparkContext].getNextRddId
     )
     if (fs.bucketedScan)
       createBucketFileScanArrowRDD(root, fs.relation.bucketSpec.get.numBuckets, dynamicallySelectedPartitions)

@@ -36,6 +36,7 @@ import org.apache.spark.internal.config.SPECULATION_ENABLED
 import org.apache.spark.internal.io._
 import org.apache.spark.partial.{BoundedDouble, PartialResult}
 import org.apache.spark.serializer.Serializer
+import org.apache.spark.sql.execution.datasources.FileScanArrowRDD
 import org.apache.spark.util.{SerializableConfiguration, SerializableJobConf, Utils}
 import org.apache.spark.util.collection.CompactBuffer
 import org.apache.spark.util.random.StratifiedSamplingUtils
@@ -89,8 +90,14 @@ class PairRDDFunctions[K, V](self: RDD[(K, V)])
       }, preservesPartitioning = true)
     } else {
       /* Update 07.09: now it supports both Arrow and non-Arrow shuffled RDD */
+      /* Update 2022-06-01: now it supports also the FileScanArrowRDD */
       self match {
         case prev: ArrowRDD[(K, V)] =>
+          new ShuffledArrowRDD[K, V, C](prev, partitioner)
+            .setSerializer(serializer)
+            .setAggregator(aggregator)
+            .setMapSideCombine(mapSideCombine)
+        case prev: FileScanArrowRDD[(K, V)] =>
           new ShuffledArrowRDD[K, V, C](prev, partitioner)
             .setSerializer(serializer)
             .setAggregator(aggregator)

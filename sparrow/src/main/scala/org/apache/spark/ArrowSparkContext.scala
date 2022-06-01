@@ -32,8 +32,14 @@ class ArrowSparkContext(config: SparkConf) extends SparkContext(config) {
     rdd.asInstanceOf[ArrowRDD[T]]
   }
 
-  private val nextRddId = new AtomicInteger(0)
-  // TODO: may need a better method in the future
-  private[spark] def newRDDId(): Int = nextRddId.getAndIncrement()
-  def getCurrentRddId: Int = nextRddId.get()
+  /**
+   * @return the nextRddId that will be used for RDD generation
+   */
+  def getNextRddId: Int = {
+    // Using Java reflection to get the private member
+    // inspiration: https://stackoverflow.com/questions/47038412/get-private-field-in-scala-trait-using-java-reflection
+    val field = classOf[SparkContext].getDeclaredField("nextRddId")
+    field.setAccessible(true)
+    field.get(this).asInstanceOf[AtomicInteger].get()
+  }
 }
