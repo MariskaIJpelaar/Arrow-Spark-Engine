@@ -30,7 +30,7 @@ trait ArrowFileFormat extends FileFormat {
                                      rddId: Long) : PartitionedFile => Iterator[ArrowPartition]
 }
 
-case class ArrowScanExec(fs: FileSourceScanExec) extends DataSourceScanExec with Logging {
+case class ArrowScanExec(fs: FileSourceScanExec) extends DataSourceScanExec with Logging with ArrowLimit {
 
   // note: this function is directly copied from SparkPlan.executeTake(n, takeFromEnd)
   private def determinePartsToScan(partsScanned: Int, bufEmpty: Boolean, n: Int, bufLen: Int, totalParts: Int): Range = {
@@ -55,11 +55,7 @@ case class ArrowScanExec(fs: FileSourceScanExec) extends DataSourceScanExec with
   }
 
   // Note: implemented similar to SparkPlan:[private]executeTake(n: Int, takeFromEnd: Boolean = false)
-  // TODO: implement own version of CollectLimitExec from limit.scala: org.apache.spark.sql.execution
-  // TODO: implement own version of SpecialLimits SparkStrategy from SparkStrategies.scala: org.apache.spark.sql.execution,
-  // check for this notes about extensions
-  // TODO: insert own version of SpecialLimits as extension
-  def executeTakeUntil(n: Int): Array[ArrowPartition] = {
+  override def executeTakeArrow(n: Int): Array[ArrowPartition] = {
     if (n == 0)
       return new Array[ArrowPartition](0)
 
