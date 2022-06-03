@@ -12,39 +12,15 @@ trait ArrowLimit extends SparkPlan {
   def executeTakeArrow(n: Int): Array[ArrowPartition]
 }
 
-case class ArrowCollectLimitExec(limit: Int, child: ArrowLimit) extends LimitExec {
+case class ArrowCollectLimitExec(limit: Int, child: SparkPlan) extends LimitExec {
   private val exec = CollectLimitExec(limit, child)
-  private val serializer: Serializer = new UnsafeRowSerializer(child.output.size)
-  private lazy val writeMetrics =
-    SQLShuffleWriteMetricsReporter.createShuffleWriteMetrics(sparkContext)
-  private lazy val readMetrics =
-    SQLShuffleReadMetricsReporter.createShuffleReadMetrics(sparkContext)
 
-  override def executeCollect(): Array[InternalRow] = child.executeTakeArrow(limit).asInstanceOf[Array[InternalRow]]
-  def executeArrowCollect(): Array[ArrowPartition] = child.executeTakeArrow(limit)
+  override def executeCollect(): Array[InternalRow] = child.asInstanceOf[ArrowLimit].executeTakeArrow(limit).asInstanceOf[Array[InternalRow]]
+  def executeArrowCollect(): Array[ArrowPartition] = child.asInstanceOf[ArrowLimit].executeTakeArrow(limit)
+
+  override protected def withNewChildInternal(newChild: SparkPlan): SparkPlan = copy(child = newChild)
 
   /** Note: copied from limit.scala:CollectLimitExec */
-  override protected def doExecute(): RDD[InternalRow] = {
-    val childRDD = child.execute()
-    if (childRDD.getNumPartitions == 0) {
-      new ParallelCollectionRDD(sparkContext, Seq.empty[InternalRow], 1, Map.empty)
-    } else {
-      val singlePartitionRDD = if (childRDD.getNumPartitions == 1) {
-        childRDD
-      } else {
-        val locallyLimited = childRDD.mapPartitionsInternal(_.take(limit))
-        new ShuffledRowRDD(
-          ShuffleExchangeExec.prepareShuffleDependency(
-            locallyLimited,
-            child.output,
-            SinglePartition,
-            serializer,
-            writeMetrics),
-          readMetrics)
-      }
-      singlePartitionRDD.mapPartitionsInternal(_.take(limit))
-    }
-  }
-  override protected def withNewChildInternal(newChild: SparkPlan): SparkPlan = exec.withNewChildrenInternal(IndexedSeq(newChild))
+  override protected def doExecute(): RDD[InternalRow] = exec.execute()
   override def output: Seq[Attribute] = exec.output
 }

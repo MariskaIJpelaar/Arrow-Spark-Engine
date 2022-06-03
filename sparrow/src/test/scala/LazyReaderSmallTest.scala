@@ -102,6 +102,9 @@ class LazyReaderSmallTest extends AnyFunSuite {
     val spark = SparkSession.builder.config(sc.getConf).withExtensions(SpArrowExtensionWrapper.injectArrowFileSourceStrategy).getOrCreate()
 
     // Construct DataFrame
+    // TODO: either need a trick to let Spark see ArrowPartition as InternalRow (SpArrowRow? consisting of ArrowPartition?)
+    // TODO: or create a custom DataFrame
+    // TODO: inspiration point: public final class ColumnarBatchRow extends InternalRow (org.apache.spark.sql.vectorized)
     val df: DataFrame = spark.read.format("utils.SimpleArrowFileFormat").load(directory.path)
     df.explain("formatted")
     df.first()

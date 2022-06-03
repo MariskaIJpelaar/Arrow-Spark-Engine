@@ -7,6 +7,7 @@ import org.apache.arrow.vector.{BigIntVector, IntVector, StringVector, ValueVect
 import org.apache.spark.{Partition, SparkEnv, SparkException}
 import org.apache.spark.internal.Logging
 import org.apache.spark.io.CompressionCodec
+import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.util.NextIterator
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, Externalizable, ObjectInput, ObjectInputStream, ObjectOutput, ObjectOutputStream}
