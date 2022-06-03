@@ -30,9 +30,9 @@ import scala.reflect.runtime.universe._
  */
 class ArrowPartition extends Partition with Externalizable with Logging {
 
-  private var _rddId : Long = 0L
-  private var _slice : Int = 0
-  private var _data : Array[ValueVector] = Array[ValueVector](new ZeroVector, new ZeroVector)
+  private[ArrowWrapper] var _rddId : Long = 0L
+  private[ArrowWrapper] var _slice : Int = 0
+  private[ArrowWrapper] var _data : Array[ValueVector] = Array[ValueVector](new ZeroVector, new ZeroVector)
 
   private val _len = _data.length
   def getLen: Int = _len
