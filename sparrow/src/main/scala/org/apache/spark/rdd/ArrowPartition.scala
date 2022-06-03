@@ -512,7 +512,6 @@ class ArrowPartition extends Partition with Externalizable with Logging {
   }
 }
 
-// TODO: implement
 object ArrowPartition {
   // Note: similar to getByteArrayRdd(...)
   def encodePartition(n: Int, iter: Iterator[ArrowPartition]): Iterator[(Long, Array[Byte])] = {
