@@ -1,18 +1,17 @@
-package org.apache.spark.rdd
+package org.apache.spark.rdd.sparrow
 
 import org.apache.arrow.memory.{BufferAllocator, RootAllocator}
+import org.apache.arrow.vector._
 import org.apache.arrow.vector.types.Types.MinorType
 import org.apache.arrow.vector.util.Text
-import org.apache.arrow.vector.{BigIntVector, IntVector, StringVector, ValueVector, VarBinaryVector, VarCharVector, ZeroVector}
-import org.apache.spark.{Partition, SparkEnv, SparkException}
 import org.apache.spark.internal.Logging
 import org.apache.spark.io.CompressionCodec
-import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.util.NextIterator
+import org.apache.spark.{Partition, SparkEnv, SparkException}
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, Externalizable, ObjectInput, ObjectInputStream, ObjectOutput, ObjectOutputStream}
-import scala.reflect.{ClassTag, classTag}
+import java.io._
 import scala.reflect.runtime.universe._
+import scala.reflect.{ClassTag, classTag}
 
 /**
  * ArrowPartition offers the main logic for treating the Arrow vectors in Spark.
@@ -30,9 +29,9 @@ import scala.reflect.runtime.universe._
  */
 class ArrowPartition extends Partition with Externalizable with Logging {
 
-  private[ArrowWrapper] var _rddId : Long = 0L
-  private[ArrowWrapper] var _slice : Int = 0
-  private[ArrowWrapper] var _data : Array[ValueVector] = Array[ValueVector](new ZeroVector, new ZeroVector)
+  private[sparrow] var _rddId : Long = 0L
+  private[sparrow] var _slice : Int = 0
+  private[sparrow] var _data : Array[ValueVector] = Array[ValueVector](new ZeroVector, new ZeroVector)
 
   private val _len = _data.length
   def getLen: Int = _len

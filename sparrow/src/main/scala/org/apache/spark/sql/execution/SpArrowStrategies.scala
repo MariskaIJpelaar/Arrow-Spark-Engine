@@ -1,9 +1,7 @@
 package org.apache.spark.sql.execution
 
-import org.apache.spark.rdd.{ArrowPartition, RDD}
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.{Attribute, IntegerLiteral}
+import org.apache.spark.sql.catalyst.expressions.IntegerLiteral
 import org.apache.spark.sql.catalyst.plans.logical.{Limit, LogicalPlan, ReturnAnswer}
 
 ///** Note: copied and edited from SparkStrategies::SparkStrategy */
@@ -23,6 +21,7 @@ import org.apache.spark.sql.catalyst.plans.logical.{Limit, LogicalPlan, ReturnAn
 //  override def executeTakeArrow(n: Int): Array[ArrowPartition] = plan.executeTakeArrow(n)
 //}
 
+// TODO: prob. can be removed
 /** Plans special cases of limit operators
  *  Similar to: SpecialLimits in SparkStrategies.scala (org.apache.spark.sql.execution) */
 case class SpArrowSpecialLimits(spark: SparkSession) extends SparkStrategy {

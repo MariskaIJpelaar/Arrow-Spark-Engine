@@ -1,10 +1,10 @@
-package org.apache.spark.rdd
+package org.apache.spark.rdd.sparrow
 
 import org.apache.arrow.memory.RootAllocator
 import org.apache.arrow.vector.complex.StructVector
 import org.apache.arrow.vector.types.Types.MinorType
-import org.apache.spark.{Partition, SparkException}
 import org.apache.spark.internal.Logging
+import org.apache.spark.{Partition, SparkException}
 
 import java.io.{Externalizable, ObjectInput, ObjectOutput}
 import scala.reflect.ClassTag

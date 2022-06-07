@@ -18,10 +18,10 @@
 package org.apache.spark.rdd
 
 import scala.reflect.ClassTag
-
 import org.apache.spark.{InterruptibleIterator, Partitioner, RangePartitioner, TaskContext}
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.internal.Logging
+import org.apache.spark.rdd.sparrow.{ArrowRDD, ShuffledArrowRDD}
 import org.apache.spark.util.collection.ExternalSorter
 
 /**

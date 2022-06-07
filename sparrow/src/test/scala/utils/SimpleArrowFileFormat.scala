@@ -6,7 +6,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
 import org.apache.hadoop.mapreduce.Job
 import org.apache.spark.internal.Logging
-import org.apache.spark.rdd.ArrowPartition
+import org.apache.spark.rdd.sparrow.ArrowWrapper
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.execution.ArrowFileFormat
 import org.apache.spark.sql.execution.datasources.parquet.{ParquetFileFormat, ParquetUtils}
@@ -34,7 +34,7 @@ class SimpleArrowFileFormat extends ArrowFileFormat with DataSourceRegister with
   override def toString: String = "Simple-SpArrow-Format"
 
   /** Returns a function that can be used to read a single file in as an Iterator of Array[ValueVector] */
-  override def buildArrowReaderWithPartitionValues(sparkSession: SparkSession, dataSchema: StructType, partitionSchema: StructType, requiredSchema: StructType, filters: Seq[Filter], options: Map[String, String], hadoopConf: Configuration, rddId: Long): PartitionedFile => Iterator[ArrowPartition] = {
+  override def buildArrowReaderWithPartitionValues(sparkSession: SparkSession, dataSchema: StructType, partitionSchema: StructType, requiredSchema: StructType, filters: Seq[Filter], options: Map[String, String], hadoopConf: Configuration, rddId: Long): PartitionedFile => Iterator[ArrowWrapper] = {
     (file: PartitionedFile) => { new ParquetReaderIterator(file, rootAllocator, rddId)}
   }
 }

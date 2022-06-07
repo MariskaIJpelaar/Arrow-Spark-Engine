@@ -1,10 +1,10 @@
-package org.apache.spark.rdd
+package org.apache.spark.rdd.sparrow
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.{Partition, TaskContext}
 
-import scala.reflect.{ClassTag, classTag}
 import scala.reflect.runtime.universe._
+import scala.reflect.{ClassTag, classTag}
 
 /**
  *

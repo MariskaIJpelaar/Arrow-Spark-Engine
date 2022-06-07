@@ -35,6 +35,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.internal.config.SPECULATION_ENABLED
 import org.apache.spark.internal.io._
 import org.apache.spark.partial.{BoundedDouble, PartialResult}
+import org.apache.spark.rdd.sparrow.{ArrowRDD, ShuffledArrowRDD}
 import org.apache.spark.serializer.Serializer
 import org.apache.spark.sql.execution.datasources.FileScanArrowRDD
 import org.apache.spark.util.{SerializableConfiguration, SerializableJobConf, Utils}

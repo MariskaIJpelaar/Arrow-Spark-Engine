@@ -1,7 +1,8 @@
 package org.apache.spark
 
 import org.apache.arrow.vector.ValueVector
-import org.apache.spark.rdd.{ArrowRDD, RDD}
+import org.apache.spark.rdd.RDD
+import org.apache.spark.rdd.sparrow.ArrowRDD
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.reflect.ClassTag

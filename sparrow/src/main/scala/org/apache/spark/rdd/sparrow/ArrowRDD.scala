@@ -1,12 +1,13 @@
-package org.apache.spark.rdd
+package org.apache.spark.rdd.sparrow
 
 import org.apache.arrow.vector._
 import org.apache.spark._
 import org.apache.spark.internal.Logging
+import org.apache.spark.rdd.{OrderedRDDFunctions, PairRDDFunctions, RDD}
 
+import scala.language.implicitConversions
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
-import scala.language.implicitConversions
 
 /**
  * An Arrow-backed RDD using ValueVector as data input.
