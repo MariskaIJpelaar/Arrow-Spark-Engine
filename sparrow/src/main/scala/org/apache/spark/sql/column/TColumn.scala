@@ -1,12 +1,27 @@
-package org.apache.spark.sql
+package org.apache.spark.sql.column
 
-import org.json4s.JValue
-
+import org.apache.spark.sql.column.expressions.GenericColumn
 import scala.collection.mutable
 import scala.util.hashing.MurmurHash3
 
+object TColumn {
+  /** This method can be used to extract values from a TColumn object */
+  def unapplySeq[T](col: TColumn[T]): Seq[Option[T]] = col.toSeq
+
+  /** This method can be used to construct a TColumn with the given values */
+  def apply[T](values: T*): TColumn[T] = new GenericColumn[T](values.toArray)
+
+  /** This method can be used to construct a TColumn from a Seq of values */
+  def fromSeq[T](values: Seq[T]): TColumn[T] = new GenericColumn[T](values.toArray)
+
+  /** Returns an empty TColumn */
+  val empty: TColumn[Nothing] = apply()
+}
+
 /** Note: inspiration from: Row.scala */
-trait Column[T] extends Serializable {
+/** Note: T stands for Trait ;)
+ * Unfortunately, spark already had a Column class*/
+trait TColumn[T] extends Serializable {
   /** Number of elements in the Column */
   def size: Int = length
 
@@ -25,14 +40,14 @@ trait Column[T] extends Serializable {
   override def toString: String = this.mkString("[", ",", "]")
 
   /** Make a copy of the current Column object */
-  def copy(): Column[T]
+  def copy(): TColumn[T]
 
   /** Returns true if there are any NULL values in this row */
   def anyNull: Boolean = 0 until length exists (i => isNullAt(i))
 
   override def equals(o: Any): Boolean = {
-    if (!o.isInstanceOf[Column[T]]) return false
-    val other = o.asInstanceOf[Column[T]]
+    if (!o.isInstanceOf[TColumn[T]]) return false
+    val other = o.asInstanceOf[TColumn[T]]
 
     if (other eq null) return false
     if (length != other.length) return false
@@ -70,16 +85,7 @@ trait Column[T] extends Serializable {
     builder.toString()
   }
 
-  /** The compact JSON representation of this Column */
-  def json: String = compact(jsonValue)
 
-  /** The pretty (i.e. indented) JSON representation of this Column */
-  def prettyJson: String = pretty(render(jsonValue))
 
-  /** JSON representation of the Column */
-  private[sql] def jsonValue: JValue = {
-    // TODO: implement
-  }
-
-  // TODO: implement other functions
+  /** Note: perhaps in the future, json functionalities will be supported here */
 }
