@@ -9,9 +9,11 @@ import org.apache.spark.sql.column.expressions.GenericColumn
 import org.apache.spark.sql.errors.QueryExecutionErrors
 import org.apache.spark.sql.types.{DataType, ObjectType}
 
+import scala.reflect.ClassTag
+
 /** Constructs a new external column, using the result of evaluating the specified
  * expressions as content */
-case class CreateExternalColumn[T](children: Seq[Expression]) extends Expression with NonSQLExpression {
+case class CreateExternalColumn[T](children: Seq[Expression])(implicit ct: ClassTag[T]) extends Expression with NonSQLExpression {
   override def nullable: Boolean = false
 
   override def eval(input: InternalRow): Any = {
@@ -44,33 +46,29 @@ case class CreateExternalColumn[T](children: Seq[Expression]) extends Expression
       code"""
             |Object[] $values = new Object[${children.size}];
             |$childrenCode
-            |final ${classOf[TColumn[T]].getName} ${ev.value} = new $columnClass($values);
+            |final ${classOf[TColumn].getName} ${ev.value} = new $columnClass($values);
        """.stripMargin
 
     ev.copy(code = code, isNull = FalseLiteral)
   }
 
-  override def dataType: DataType = ObjectType(classOf[TColumn[T]])
+  override def dataType: DataType = ObjectType(classOf[TColumn])
 
-  override protected def withNewChildrenInternal(newChildren: IndexedSeq[Expression]): CreateExternalColumn[T] =
-    copy(children = newChildren)
+  override protected def withNewChildrenInternal(newChildren: IndexedSeq[Expression]): CreateExternalColumn[T] = copy(children = newChildren)
 }
 
 
-case class GetExternalColumn[T](child: Expression) extends UnaryExpression with NonSQLExpression {
+case class GetExternalColumn[T](child: Expression)(implicit ct: ClassTag[T]) extends UnaryExpression with NonSQLExpression {
   override def nullable: Boolean = false
 
   override def eval(input: InternalRow): Any = {
-    val inputColumn = child.eval(input).asInstanceOf[TColumn[T]]
+    val inputColumn = child.eval(input).asInstanceOf[TColumn]
     if (inputColumn == null)
       throw QueryExecutionErrors.inputExternalRowCannotBeNullError() // well, pretend it is about Columns, I guess
     inputColumn
   }
 
   override protected def doGenCode(ctx: CodegenContext, ev: ExprCode): ExprCode = {
-    // Use unnamed reference that doesn't create a local field here to reduce the number of fields
-    // because errMsgField is used only when the field is null.
-    val errMsgField = ctx.addReferenceObj("errMsg", QueryExecutionErrors.fieldCannotBeNullMsg(0, ""))
     val column = child.genCode(ctx)
     val code = code"""
       ${column.code}
@@ -84,7 +82,7 @@ case class GetExternalColumn[T](child: Expression) extends UnaryExpression with 
     ev.copy(code = code, isNull = FalseLiteral)
   }
 
-  override def dataType: DataType = ObjectType(classOf[T])
+  override def dataType: DataType = ObjectType(ct.getClass)
 
   override protected def withNewChildInternal(newChild: Expression): GetExternalColumn[T] = copy(child = newChild)
 }

@@ -4,8 +4,11 @@ import org.apache.avro.generic.{GenericData, GenericRecordBuilder}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.parquet.hadoop.util.HadoopOutputFile
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.column.{ColumnDataFrame, ColumnDataFrameReader, TColumn}
+import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
 import org.apache.spark.sql.util.SpArrowExtensionWrapper
-import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.{ArrowSparkContext, SparkConf}
 import org.scalatest.funsuite.AnyFunSuite
 import utils.{MultiIterator, ParquetWriter}
@@ -65,6 +68,19 @@ class LazyReaderSmallTest extends AnyFunSuite {
     })
   }
 
+  def checkFirst(answer: TColumn): Unit = {
+    assert(answer.length == table.size())
+
+    0 until answer.length foreach { i =>
+      val ans = answer.get(i)
+      assert(ans.isDefined)
+      val col = table.get(i).colA
+      assert(ans.get == col)
+    }
+
+
+  }
+
   def checkAnswer(answer: Array[ValueVector]) : Unit = {
     assert(answer.length == num_cols)
 
@@ -101,11 +117,17 @@ class LazyReaderSmallTest extends AnyFunSuite {
     sc.setLogLevel("ERROR")
     val spark = SparkSession.builder.config(sc.getConf).withExtensions(SpArrowExtensionWrapper.injectArrowFileSourceStrategy).getOrCreate()
 
+    val temp_list = new util.ArrayList[StructField](2)
+    temp_list.add(StructField("numA", IntegerType, nullable = true))
+    temp_list.add(StructField("numB", IntegerType, nullable = true))
+    val temp = RowEncoder(StructType(temp_list))
 
     // Construct DataFrame
-    val df: DataFrame = spark.read.format("utils.SimpleArrowFileFormat").load(directory.path)
+    val df: ColumnDataFrame = new ColumnDataFrameReader(spark).format("utils.SimpleArrowFileFormat").loadDF(directory.path)
     df.explain("formatted")
-    df.first()
+    val plan = df.queryExecution.executedPlan.execute()
+    val firstOfPlan = plan.first()
+    checkFirst(df.first())
     // Perform ColumnarSort
     df.sort("numA", "numB")
     df.explain("formatted")

@@ -13,7 +13,7 @@ import org.apache.parquet.format.converter.ParquetMetadataConverter
 import org.apache.parquet.hadoop.ParquetFileReader
 import org.apache.parquet.hadoop.util.HadoopInputFile
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName
-import org.apache.spark.rdd.sparrow.{ArrowPartition, ArrowWrapper}
+import org.apache.spark.rdd.sparrow.{ArrowPartition, ArrowInternalColumn}
 import org.apache.spark.sql.execution.datasources.PartitionedFile
 
 import java.util.concurrent.atomic.AtomicInteger
@@ -29,7 +29,7 @@ import scala.collection.JavaConverters.asScalaBufferConverter
  * this converter in turn is according to:
  * https://gist.github.com/animeshtrivedi/76de64f9dab1453958e1d4f8eca1605f */
 class ParquetReaderIterator(protected val file: PartitionedFile, protected val rootAllocator: RootAllocator,
-                            protected val rddId: Long) extends Iterator[ArrowWrapper] {
+                            protected val rddId: Long) extends Iterator[ArrowInternalColumn] {
   if (file.length > Integer.MAX_VALUE)
     throw new RuntimeException("[IntegerParquetReaderIterator] Partition is too large")
 
@@ -53,7 +53,7 @@ class ParquetReaderIterator(protected val file: PartitionedFile, protected val r
 
   private val sliceId = new AtomicInteger(0)
 
-  override def next(): ArrowWrapper = {
+  override def next(): ArrowInternalColumn = {
     if (!hasNext)
       throw new RuntimeException("[IntegerParquetReaderIterator] has no next")
 
@@ -89,7 +89,7 @@ class ParquetReaderIterator(protected val file: PartitionedFile, protected val r
 
     vectorSchemaRoot.setRowCount(rows)
     val data = vectorSchemaRoot.getFieldVectors.asInstanceOf[java.util.List[ValueVector]].asScala.toArray
-    ArrowWrapper(new ArrowPartition(rddId, sliceId.getAndIncrement(), data))
+    ArrowInternalColumn(new ArrowPartition(rddId, sliceId.getAndIncrement(), data))
   }
 }
 

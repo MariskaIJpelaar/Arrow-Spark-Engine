@@ -13,7 +13,9 @@ import java.io.{ByteArrayInputStream, ByteArrayOutputStream, Externalizable, Obj
 
 /** Wrapper to trick spark into understanding our ArrowPartition :)
  * Note: we do not actually implement a lot, because we are not actually a row */
-case class ArrowWrapper(private var partition: ArrowPartition) extends InternalRow with Externalizable {
+case class ArrowInternalColumn(private var partition: ArrowPartition) extends InternalRow with Externalizable {
+  /** No-arg constructor for (de-)serialization */
+  def this() = this(new ArrowPartition())
 
   /** Note: helper function to copy data of partitions */
   def transfer(): Array[ValueVector] = {
@@ -76,7 +78,7 @@ case class ArrowWrapper(private var partition: ArrowPartition) extends InternalR
   }
 
   override def copy(): InternalRow = {
-    ArrowWrapper(new ArrowPartition(partition._rddId, partition._slice, transfer()))
+    ArrowInternalColumn(new ArrowPartition(partition._rddId, partition._slice, transfer()))
   }
 
   override def getUTF8String(ordinal: Int): UTF8String = {
@@ -107,9 +109,9 @@ case class ArrowWrapper(private var partition: ArrowPartition) extends InternalR
   override def readExternal(objectInput: ObjectInput): Unit = { partition.readExternal(objectInput)  }
 }
 
-object ArrowWrapper {
+object ArrowInternalColumn {
   /**  Note: similar to getByteArrayRdd(...) */
-  def encode(n: Int, iter: Iterator[ArrowWrapper]): Iterator[(Long, Array[Byte])] = {
+  def encode(n: Int, iter: Iterator[ArrowInternalColumn]): Iterator[(Long, Array[Byte])] = {
     var count: Long = 0
     val codec = CompressionCodec.createCodec(SparkEnv.get.conf)
     val bos = new ByteArrayOutputStream()
@@ -128,18 +130,18 @@ object ArrowWrapper {
   }
 
   /** Note: similar to decodeUnsafeRows */
-  def decode(bytes: Array[Byte]): Iterator[ArrowWrapper] = {
+  def decode(bytes: Array[Byte]): Iterator[ArrowInternalColumn] = {
     val codec = CompressionCodec.createCodec(SparkEnv.get.conf)
     val bis = new ByteArrayInputStream(bytes)
     val ois = new ObjectInputStream(codec.compressedInputStream(bis))
 
-    new NextIterator[ArrowWrapper] {
-      override protected def getNext(): ArrowWrapper = {
+    new NextIterator[ArrowInternalColumn] {
+      override protected def getNext(): ArrowInternalColumn = {
         if (ois.readInt() == 0) {
           finished = true
           return null
         }
-        val wrapper = new ArrowWrapper(new ArrowPartition())
+        val wrapper = new ArrowInternalColumn(new ArrowPartition())
         wrapper.readExternal(ois)
         wrapper
       }

@@ -1,38 +1,52 @@
 package org.apache.spark.sql.column
 
 import org.apache.spark.sql.column.expressions.GenericColumn
+
 import scala.collection.mutable
+import scala.reflect.ClassTag
 import scala.util.hashing.MurmurHash3
 
 object TColumn {
   /** This method can be used to extract values from a TColumn object */
-  def unapplySeq[T](col: TColumn[T]): Seq[Option[T]] = col.toSeq
+  def unapplySeq(col: TColumn): Seq[Option[Any]] = col.toSeq
 
   /** This method can be used to construct a TColumn with the given values */
-  def apply[T](values: T*): TColumn[T] = new GenericColumn[T](values.toArray)
+  def apply[T](values: T*)(implicit tag: ClassTag[T]): TColumn = new GenericColumn[T](values.toArray)
 
   /** This method can be used to construct a TColumn from a Seq of values */
-  def fromSeq[T](values: Seq[T]): TColumn[T] = new GenericColumn[T](values.toArray)
+  def fromSeq[T](values: Seq[T])(implicit tag: ClassTag[T]): TColumn = new GenericColumn[T](values.toArray)
 
   /** Returns an empty TColumn */
-  val empty: TColumn[Nothing] = apply()
+  val empty: TColumn = apply()
 }
 
 /** Note: inspiration from: Row.scala */
 /** Note: T stands for Trait ;)
  * Unfortunately, spark already had a Column class*/
-trait TColumn[T] extends Serializable {
+trait TColumn extends Serializable {
+  /** Type of the column */
+  def colType: Class[_]
+
   /** Number of elements in the Column */
   def size: Int = length
 
   /** Number of elements in the Column */
   def length: Int
 
-  /** Returns the value at position i. If the value is null, null is returned. */
-  def apply(i: Int): Option[T] = get(i)
+  /** Returns the value at position i. If the value is null, None is returned.
+   * Verifies if type is equal to colType, or returns None */
+  def apply(i: Int): Option[Any] = get(i)
 
-  /** Returns the value at position i. If the value is null, null is returned */
-  def get(i: Int): Option[T]
+  /** Returns the value at position i. If the value is null, None is returned
+   * Verifies type is equal to colType, or returns None */
+  def get(i: Int): Option[Any] = {
+    getInternal(i).flatMap{ value =>
+      if (ClassTag(value.getClass) != ClassTag(colType)) None else Some(value)
+    }
+  }
+
+  /** Returns the value at position i. If the value is null, None is returned */
+  protected def getInternal(i: Int): Option[Any]
 
   /** Checks whether the value at position i is null */
   def isNullAt(i: Int): Boolean = get(i).isDefined
@@ -40,14 +54,14 @@ trait TColumn[T] extends Serializable {
   override def toString: String = this.mkString("[", ",", "]")
 
   /** Make a copy of the current Column object */
-  def copy(): TColumn[T]
+  def copy(): TColumn
 
   /** Returns true if there are any NULL values in this row */
   def anyNull: Boolean = 0 until length exists (i => isNullAt(i))
 
   override def equals(o: Any): Boolean = {
-    if (!o.isInstanceOf[TColumn[T]]) return false
-    val other = o.asInstanceOf[TColumn[T]]
+    if (!o.isInstanceOf[TColumn]) return false
+    val other = o.asInstanceOf[TColumn]
 
     if (other eq null) return false
     if (length != other.length) return false
@@ -64,7 +78,7 @@ trait TColumn[T] extends Serializable {
   /* ---------------------- utility methods for Scala ---------------------- */
   /** Return a Scala Seq representing the Column.
    *  Elements are placed in the same order in the Seq */
-  def toSeq: Seq[Option[T]] = Seq.tabulate(length)( i => get(i) )
+  def toSeq: Seq[Option[Any]] = Seq.tabulate(length)( i => get(i) )
 
   /** Displays all elements of this sequence in a string */
   def mkString: String = mkString("")

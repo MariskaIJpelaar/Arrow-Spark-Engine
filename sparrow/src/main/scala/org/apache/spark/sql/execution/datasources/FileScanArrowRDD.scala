@@ -3,7 +3,7 @@ package org.apache.spark.sql.execution.datasources
 import org.apache.parquet.io.ParquetDecodingException
 import org.apache.spark.deploy.SparkHadoopUtil
 import org.apache.spark.rdd.InputFileBlockHolder
-import org.apache.spark.rdd.sparrow.{ArrowRDD, ArrowWrapper}
+import org.apache.spark.rdd.sparrow.{ArrowRDD, ArrowInternalColumn}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.errors.QueryExecutionErrors
 import org.apache.spark.sql.execution.QueryExecutionException
@@ -29,7 +29,7 @@ import scala.reflect.runtime.universe._
  * @tparam T the RDD primitive data type (as defined by the Scala Standard)
  */
 class FileScanArrowRDD[T: ClassTag] (@transient private val sparkSession: SparkSession,
-                                     readFunction: PartitionedFile => Iterator[ArrowWrapper],
+                                     readFunction: PartitionedFile => Iterator[ArrowInternalColumn],
                                      @transient val filePartitions: Seq[FilePartition])
                                     (implicit tag: TypeTag[T])
                                      extends ArrowRDD[T](sparkSession.sparkContext, Array.empty, 1, Map.empty) {
@@ -70,7 +70,7 @@ class FileScanArrowRDD[T: ClassTag] (@transient private val sparkSession: SparkS
         currentIterator = None
       }
 
-      private def readCurrentFile(): Iterator[ArrowWrapper] = {
+      private def readCurrentFile(): Iterator[ArrowInternalColumn] = {
         try {
           readFunction(currentFile.get)
         } catch {
@@ -97,7 +97,7 @@ class FileScanArrowRDD[T: ClassTag] (@transient private val sparkSession: SparkS
             // The readFunction may read some bytes before consuming the iterator, e.g.,
             // vectorized Parquet reader. Here we use a lazily initialized variable to delay the
             // creation of iterator so that we will throw exception in `getNext`.
-            lazy private val internalIter: Iterator[ArrowWrapper] = readCurrentFile()
+            lazy private val internalIter: Iterator[ArrowInternalColumn] = readCurrentFile()
 
             override def getNext(): AnyRef = {
               try {
@@ -166,7 +166,7 @@ class FileScanArrowRDD[T: ClassTag] (@transient private val sparkSession: SparkS
         val nextElement = currentIterator.get.next()
         incTaskInputMetricsBytesRead()
         nextElement match {
-          case partition: ArrowWrapper => inputMetrics.incRecordsRead(partition.numFields)
+          case partition: ArrowInternalColumn => inputMetrics.incRecordsRead(partition.numFields)
         }
         nextElement
       }
